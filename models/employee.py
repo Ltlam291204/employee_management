@@ -34,6 +34,10 @@ class Employee(models.Model):
         help="Mật khẩu hiện tại của tài khoản. Chỉ Giám đốc xem được."
     )
     
+    # Currency field
+    currency_id = fields.Many2one('res.currency', string='Currency', 
+                                   default=lambda self: self.env.company.currency_id)
+    
     # Tên nhân viên
     display_name_char = fields.Char('Tên Nhân viên', required=True, tracking=True) 
     email = fields.Char('Email', tracking=True)
@@ -328,6 +332,18 @@ class Employee(models.Model):
                 'default_user_id': self.name.id,
                 'default_current_password_display': self.current_password,
             }
+        }
+    
+    def action_view_payslips(self):
+        """Mở danh sách phiếu lương của nhân viên"""
+        self.ensure_one()
+        return {
+            'name': 'Phiếu lương',
+            'type': 'ir.actions.act_window',
+            'res_model': 'payroll.payslip',
+            'view_mode': 'list,form',
+            'domain': [('employee_id', '=', self.id)],
+            'context': {'default_employee_id': self.id},
         }
 
 
