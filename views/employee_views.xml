@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_employee_management_form" model="ir.ui.view">
+            <field name="name">employee.management.employee.form</field>
+            <field name="model">employee.management.employee</field>
+            <field name="arch" type="xml">
+                <form string="Hồ sơ Nhân viên">
+                    <header>
+                        <button name="action_activate" type="object" string="Kích hoạt" 
+                               class="btn-primary" invisible="state == 'active'"/>
+                        <button name="action_deactivate" type="object" string="Vô hiệu hóa" 
+                               class="btn-secondary" invisible="state != 'active'"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,active,inactive"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <!-- Hiển thị lương hiện tại -->
+                            <button class="oe_stat_button" type="object" name="action_view_payslips" icon="fa-money">
+                                <div class="o_field_widget o_stat_info">
+                                    <span class="o_stat_value">
+                                        <field name="current_salary" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                    </span>
+                                    <span class="o_stat_text">Lương hiện tại</span>
+                                </div>
+                            </button>
+                        </div>
+                        <field name="currency_id" invisible="1"/>
+                        
+                        <group>
+                            <group string="Thông tin cơ bản">
+                                <field name="display_name_char" placeholder="Nhập tên nhân viên..."/>
+                                <field name="phone" placeholder="+84 xxx xxx xxx"/>
+                                <field name="identification_number" placeholder="Số CMND/CCCD"/>
+                            </group>
+                            
+                            <group string="Thông tin công việc">
+                                <field name="department" placeholder="VD: Kế toán, IT, Marketing..."/>
+                                <field name="position" placeholder="VD: Nhân viên, Trưởng phòng..."/>
+                                <field name="date_of_birth"/>
+                            </group>
+                        </group>
+
+                        <group groups="employee_management.group_manager">
+                            <group string="Tài khoản Odoo">
+                                <!-- Khi chưa có tài khoản: hiển thị form tạo -->
+                                <field name="create_odoo_account" 
+                                       widget="boolean"
+                                       invisible="name"
+                                       string="Tạo tài khoản Odoo"/>
+                                <field name="email" 
+                                       placeholder="email@company.com"
+                                       invisible="name or not create_odoo_account"
+                                       required="create_odoo_account and not name"/>
+                                <field name="user_role" 
+                                       widget="radio" 
+                                       options="{'horizontal': true}"
+                                       invisible="name or not create_odoo_account"/>
+                                
+                                <!-- Khi đã có tài khoản: hiển thị thông tin -->
+                                <field name="name" 
+                                       string="Tài khoản" 
+                                       readonly="1" 
+                                       force_save="1" 
+                                       invisible="not name"/>
+                                <field name="email" 
+                                       string="Email" 
+                                       readonly="1" 
+                                       invisible="not name"/>
+                                <field name="user_role" 
+                                       string="Quyền hạn" 
+                                       readonly="1" 
+                                       invisible="not name"/>
+                                
+                                <!-- Hiển thị mật khẩu và nút đổi -->
+                                <label for="current_password" 
+                                       string="Mật khẩu hiện tại" 
+                                       invisible="not name"/>
+                                <div invisible="not name" class="o_row">
+                                    <field name="current_password" 
+                                           nolabel="1"
+                                           readonly="1"
+                                           password="True"
+                                           class="oe_inline"/>
+                                    <button name="action_reset_password" 
+                                            type="object" 
+                                            string="Đổi mật khẩu" 
+                                            class="btn-link"
+                                            icon="fa-key"/>
+                                </div>
+                            </group>
+                        </group>
+
+                        <group>
+                            <group string="Thông tin cá nhân">
+                                <field name="emergency_contact" placeholder="Tên người liên hệ khẩn cấp"/>
+                                <field name="emergency_phone" placeholder="SĐT khẩn cấp"/>
+                            </group>
+                            <group>
+                                <field name="address" placeholder="Địa chỉ thường trú..."/>
+                            </group>
+                        </group>
+                        
+                        <notebook>
+                            <page string="Hợp đồng" name="contracts">
+                                <field name="contract_ids" readonly="1">
+                                    <tree>
+                                        <field name="name"/> 
+                                        <field name="date_start"/>
+                                        <field name="date_end"/>
+                                        <field name="total_salary" groups="employee_management.group_manager"/>
+                                        <field name="state"/>
+                                    </tree>
+                                </field>
+                            </page>
+                            
+                            <page string="Phiếu lương" name="payslips" groups="employee_management.group_payroll_employee">
+                                <field name="payslip_ids" readonly="1">
+                                    <tree>
+                                        <field name="name"/>
+                                        <field name="date_from"/>
+                                        <field name="date_to"/>
+                                        <field name="gross_wage"/>
+                                        <field name="net_wage"/>
+                                        <field name="state"/>
+                                    </tree>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        
+        <record id="view_employee_management_list" model="ir.ui.view">
+            <field name="name">employee.management.employee.list</field>
+            <field name="model">employee.management.employee</field>
+            <field name="arch" type="xml">
+                <list string="Danh sách Nhân viên">
+                    <field name="display_name_char" string="Tên Nhân viên"/>
+                    <field name="identification_number"/>
+                    <field name="department"/>
+                    <field name="position"/>
+                    <field name="create_odoo_account" string="Có tài khoản" groups="employee_management.group_manager"/>
+                    <field name="current_salary" groups="employee_management.group_payroll_officer"/>
+                    <field name="state"/>
+                </list>
+            </field>
+        </record>
+        
+        <record id="view_employee_management_kanban" model="ir.ui.view">
+            <field name="name">employee.management.employee.kanban</field>
+            <field name="model">employee.management.employee</field>
+            <field name="arch" type="xml">
+                <kanban class="o_hr_employee_kanban">
+                    <field name="display_name_char"/>
+                    <field name="identification_number"/>
+                    <field name="department"/>
+                    <field name="position"/>
+                    <field name="state"/>
+                    <field name="current_salary"/>
+                    <templates>
+                        <t t-name="kanban-box">
+                            <div class="oe_kanban_global_click_edit oe_semantic_html_override oe_kanban_card">
+                                <div class="o_kanban_record_top">
+                                    <div class="o_kanban_record_headings">
+                                        <h4 class="o_kanban_record_title">
+                                            <a type="open"><field name="display_name_char"/></a>
+                                        </h4>
+                                        <strong class="o_kanban_record_subtitle">
+                                            <field name="identification_number"/>
+                                        </strong>
+                                    </div>
+                                </div>
+                                
+                                <div class="o_kanban_record_body">
+                                    <div class="mb-1">
+                                        <field name="department"/>
+                                    </div>
+                                    <div class="mb-1">
+                                        <field name="position"/>
+                                    </div>
+                                    <div class="mt-2" groups="employee_management.group_payroll_officer">
+                                        Lương: <t t-esc="record.current_salary.value"/> VND
+                                    </div>
+                                </div>
+                                
+                                <div class="o_kanban_record_bottom">
+                                    <field name="state" widget="label_selection"/>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+
+        <record id="view_employee_management_search" model="ir.ui.view">
+            <field name="name">employee.management.employee.search</field>
+            <field name="model">employee.management.employee</field>
+            <field name="arch" type="xml">
+                <search string="Tìm kiếm Nhân viên">
+                    <field name="display_name_char" string="Tên"/>
+                    <field name="identification_number"/>
+                    <field name="department"/>
+                    <field name="position"/>
+                    <separator/>
+                    <filter string="Đang làm việc" name="active" domain="[('state', '=', 'active')]"/>
+                    <filter string="Nháp" name="draft" domain="[('state', '=', 'draft')]"/>
+                    <filter string="Ngừng làm việc" name="inactive" domain="[('state', '=', 'inactive')]"/>
+                    <separator/>
+                    <filter string="Có tài khoản Odoo" name="has_user" domain="[('name', '!=', False)]" groups="employee_management.group_manager"/>
+                    <filter string="Chưa có tài khoản Odoo" name="no_user" domain="[('name', '=', False)]" groups="employee_management.group_manager"/>
+                    <group expand="0" string="Nhóm theo">
+                        <filter string="Trạng thái" name="group_state" context="{'group_by': 'state'}"/>
+                        <filter string="Phòng ban" name="group_department" context="{'group_by': 'department'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+        
+        <record id="action_employee_management" model="ir.actions.act_window">
+            <field name="name">Hồ sơ Nhân viên</field>
+            <field name="res_model">employee.management.employee</field>
+            <field name="view_mode">kanban,list,form</field>
+            <field name="search_view_id" ref="view_employee_management_search"/>
+            <field name="context">{'search_default_active': 1}</field>
+            <field name="domain">[('name', '!=', 1)]</field> 
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Tạo hồ sơ nhân viên đầu tiên!
+                </p>
+                <p>
+                    Quản lý toàn bộ thông tin nhân viên, từ hồ sơ cá nhân đến hợp đồng lao động và phiếu lương.
+                </p>
+            </field>
+        </record>
+        
+        <!-- Action để xem phiếu lương từ nhân viên -->
+        <record id="action_view_employee_payslips" model="ir.actions.act_window">
+            <field name="name">Phiếu lương</field>
+            <field name="res_model">payroll.payslip</field>
+            <field name="view_mode">list,form</field>
+            <field name="domain">[('employee_id', '=', active_id)]</field>
+            <field name="context">{'default_employee_id': active_id}</field>
+        </record>
+        
+        <!-- Action cho contribution type -->
+        <record id="action_contribution_type" model="ir.actions.act_window">
+            <field name="name">Kiểu đóng góp</field>
+            <field name="res_model">employee.management.contribution.type</field>
+            <field name="view_mode">list,form</field>
+        </record>
+    </data>
+</odoo>

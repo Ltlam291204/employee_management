@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- View cho wizard gia hạn hợp đồng -->
+        <record id="view_contract_renew_wizard" model="ir.ui.view">
+            <field name="name">employee.contract.renew.wizard.form</field>
+            <field name="model">employee.contract.renew.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Gia hạn Hợp đồng">
+                    <group>
+                        <field name="contract_id" readonly="1"/>
+                        <field name="current_end_date" readonly="1"/>
+                        <field name="new_end_date" required="1"/>
+                        <field name="reason" placeholder="Nhập lý do gia hạn hợp đồng (tùy chọn)..."/>
+                    </group>
+                    <footer>
+                        <button name="action_confirm_renew" type="object" string="Xác nhận Gia hạn" 
+                               class="btn-primary"/>
+                        <button string="Hủy bỏ" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- Action cho wizard gia hạn -->
+        <record id="action_contract_renew_wizard" model="ir.actions.act_window">
+            <field name="name">Gia hạn Hợp đồng</field>
+            <field name="res_model">employee.contract.renew.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+            <field name="context">{'default_contract_id': active_id}</field>
+        </record>
+    </data>
+</odoo>

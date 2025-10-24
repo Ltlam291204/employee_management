@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- XÓA CÁC RECORD RULES CŨ -->
+        <delete model="ir.rule" search="[('model_id.model', '=', 'employee.management.employee')]"/>
+        <delete model="ir.rule" search="[('model_id.model', '=', 'employee.management.contract')]"/>
+        <delete model="ir.rule" search="[('model_id.model', '=', 'employee.management.contract.benefit')]"/>
+        <delete model="ir.rule" search="[('model_id.model', '=', 'employee.management.contract.contribution')]"/>
+        <delete model="ir.rule" search="[('model_id.model', '=', 'employee.management.contribution.type')]"/>
+        <delete model="ir.rule" search="[('model_id.model', '=', 'payroll.payslip')]"/>
+    </data>
+
+    <data noupdate="1">
+        <!-- Category -->
+        <record id="category_employee_management" model="ir.module.category">
+            <field name="name">Quản lý Nhân viên</field>
+            <field name="description">Danh mục quyền cho module quản lý nhân viên</field>
+            <field name="sequence">10</field>
+        </record>
+        
+        <!-- ============================================ -->
+        <!-- GROUPS -->
+        <!-- ============================================ -->
+        
+        <!-- 1. Nhân viên - Quyền cơ bản -->
+        <record id="group_employee" model="res.groups">
+            <field name="name">Nhân viên</field>
+            <field name="category_id" ref="category_employee_management"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+            <field name="comment">Chỉ xem thông tin cá nhân, hợp đồng và lương của mình</field>
+        </record>
+
+        <!-- 2. Nhân viên - Xem lương -->
+        <record id="group_payroll_employee" model="res.groups">
+            <field name="name">Nhân viên: Xem lương cá nhân</field>
+            <field name="category_id" ref="category_employee_management"/>
+            <field name="implied_ids" eval="[(4, ref('group_employee'))]"/>
+            <field name="comment">Xem phiếu lương của chính mình</field>
+        </record>
+
+        <!-- 3. Cán bộ - Quản lý lương -->
+        <record id="group_payroll_officer" model="res.groups">
+            <field name="name">Cán bộ: Quản lý lương</field>
+            <field name="category_id" ref="category_employee_management"/>
+            <field name="implied_ids" eval="[(4, ref('group_payroll_employee'))]"/>
+            <field name="comment">Tạo và quản lý phiếu lương cho tất cả nhân viên</field>
+        </record>
+
+        <!-- 4. Giám đốc - Toàn quyền -->
+        <record id="group_manager" model="res.groups">
+            <field name="name">Giám đốc</field>
+            <field name="category_id" ref="category_employee_management"/>
+            <field name="implied_ids" eval="[(4, ref('group_employee'))]"/>
+            <field name="comment">Toàn quyền thêm, sửa, xóa tất cả dữ liệu. Có thể cấp quyền cho User.</field>
+        </record>
+
+        <!-- 5. Giám đốc - Quản lý lương toàn quyền -->
+        <record id="group_payroll_manager" model="res.groups">
+            <field name="name">Giám đốc: Toàn quyền Lương</field>
+            <field name="category_id" ref="category_employee_management"/>
+            <field name="implied_ids" eval="[(4, ref('group_payroll_officer')), (4, ref('group_manager'))]"/>
+            <field name="comment">Toàn quyền cấu hình lương và quy tắc</field>
+        </record>
+
+        <!-- ============================================ -->
+        <!-- RULES CHO ADMIN & SYSTEM -->
+        <!-- ============================================ -->
+        
+        <record id="rule_admin_employee" model="ir.rule">
+            <field name="name">Admin: Toàn quyền Nhân viên</field>
+            <field name="model_id" ref="model_employee_management_employee"/>
+            <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <record id="rule_admin_contract" model="ir.rule">
+            <field name="name">Admin: Toàn quyền Hợp đồng</field>
+            <field name="model_id" ref="model_employee_management_contract"/>
+            <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <record id="rule_admin_benefit" model="ir.rule">
+            <field name="name">Admin: Toàn quyền Phúc lợi</field>
+            <field name="model_id" ref="model_employee_management_contract_benefit"/>
+            <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <record id="rule_admin_contribution" model="ir.rule">
+            <field name="name">Admin: Toàn quyền Đóng góp</field>
+            <field name="model_id" ref="model_employee_management_contract_contribution"/>
+            <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <record id="rule_admin_contribution_type" model="ir.rule">
+            <field name="name">Admin: Toàn quyền Kiểu Đóng góp</field>
+            <field name="model_id" ref="model_employee_management_contribution_type"/>
+            <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <record id="rule_admin_payslip" model="ir.rule">
+            <field name="name">Admin: Toàn quyền Phiếu lương</field>
+            <field name="model_id" ref="model_payroll_payslip"/>
+            <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <!-- ============================================ -->
+        <!-- RULES CHO GIÁM ĐỐC -->
+        <!-- ============================================ -->
+        
+        <record id="rule_manager_employee" model="ir.rule">
+            <field name="name">Giám đốc: Toàn quyền Nhân viên</field>
+            <field name="model_id" ref="model_employee_management_employee"/>
+            <field name="groups" eval="[(4, ref('group_manager'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <record id="rule_manager_contract" model="ir.rule">
+            <field name="name">Giám đốc: Toàn quyền Hợp đồng</field>
+            <field name="model_id" ref="model_employee_management_contract"/>
+            <field name="groups" eval="[(4, ref('group_manager'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <record id="rule_manager_benefit" model="ir.rule">
+            <field name="name">Giám đốc: Toàn quyền Phúc lợi</field>
+            <field name="model_id" ref="model_employee_management_contract_benefit"/>
+            <field name="groups" eval="[(4, ref('group_manager'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <record id="rule_manager_contribution" model="ir.rule">
+            <field name="name">Giám đốc: Toàn quyền Đóng góp</field>
+            <field name="model_id" ref="model_employee_management_contract_contribution"/>
+            <field name="groups" eval="[(4, ref('group_manager'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <record id="rule_manager_contribution_type" model="ir.rule">
+            <field name="name">Giám đốc: Toàn quyền Kiểu Đóng góp</field>
+            <field name="model_id" ref="model_employee_management_contribution_type"/>
+            <field name="groups" eval="[(4, ref('group_manager'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <record id="rule_manager_payslip" model="ir.rule">
+            <field name="name">Giám đốc: Toàn quyền Phiếu lương</field>
+            <field name="model_id" ref="model_payroll_payslip"/>
+            <field name="groups" eval="[(4, ref('group_payroll_manager'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <!-- ============================================ -->
+        <!-- RULES CHO CÁN BỘ LƯƠNG -->
+        <!-- ============================================ -->
+
+        <record id="rule_officer_payslip" model="ir.rule">
+            <field name="name">Cán bộ: Quản lý tất cả phiếu lương</field>
+            <field name="model_id" ref="model_payroll_payslip"/>
+            <field name="groups" eval="[(4, ref('group_payroll_officer'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <!-- ============================================ -->
+        <!-- RULES CHO NHÂN VIÊN (CHỈ XEM CỦA MÌNH) -->
+        <!-- ============================================ -->
+        
+        <record id="rule_employee_own_record" model="ir.rule">
+            <field name="name">Nhân viên: Chỉ xem hồ sơ của mình</field>
+            <field name="model_id" ref="model_employee_management_employee"/>
+            <field name="groups" eval="[(4, ref('group_employee'))]"/>
+            <field name="domain_force">[('name', '=', user.id)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+        <record id="rule_employee_contract" model="ir.rule">
+            <field name="name">Nhân viên: Chỉ xem hợp đồng của mình</field>
+            <field name="model_id" ref="model_employee_management_contract"/>
+            <field name="groups" eval="[(4, ref('group_employee'))]"/>
+            <field name="domain_force">[('employee_id.name', '=', user.id)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+        <record id="rule_employee_benefit" model="ir.rule">
+            <field name="name">Nhân viên: Chỉ xem phúc lợi của mình</field>
+            <field name="model_id" ref="model_employee_management_contract_benefit"/>
+            <field name="groups" eval="[(4, ref('group_employee'))]"/>
+            <field name="domain_force">[('contract_id.employee_id.name', '=', user.id)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+        <record id="rule_employee_contribution" model="ir.rule">
+            <field name="name">Nhân viên: Chỉ xem đóng góp của mình</field>
+            <field name="model_id" ref="model_employee_management_contract_contribution"/>
+            <field name="groups" eval="[(4, ref('group_employee'))]"/>
+            <field name="domain_force">[('contract_id.employee_id.name', '=', user.id)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+        <record id="rule_employee_contribution_type" model="ir.rule">
+            <field name="name">Nhân viên: Xem tất cả Kiểu Đóng góp</field>
+            <field name="model_id" ref="model_employee_management_contribution_type"/>
+            <field name="groups" eval="[(4, ref('group_employee'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+        <record id="rule_employee_payslip" model="ir.rule">
+            <field name="name">Nhân viên: Xem phiếu lương cá nhân</field>
+            <field name="model_id" ref="model_payroll_payslip"/>
+            <field name="groups" eval="[(4, ref('group_payroll_employee'))]"/>
+            <field name="domain_force">[('employee_id.name', '=', user.id)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+    </data>
+</odoo>

@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Form view Cấu trúc lương -->
+        <record id="view_payroll_structure_form" model="ir.ui.view">
+            <field name="name">payroll.structure.form</field>
+            <field name="model">payroll.structure</field>
+            <field name="arch" type="xml">
+                <form string="Cấu trúc lương">
+                    <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="toggle_active" type="object" class="oe_stat_button" icon="fa-archive">
+                                <field name="active" widget="boolean_button" options="{'terminology': 'archive'}"/>
+                            </button>
+                        </div>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" placeholder="Tên cấu trúc lương"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="code"/>
+                                <field name="sequence"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Quy tắc lương" name="rules">
+                                <field name="rule_ids">
+                                    <list editable="bottom" decoration-muted="not is_active">
+                                        <field name="sequence" widget="handle"/>
+                                        <field name="name"/>
+                                        <field name="code"/>
+                                        <field name="category"/>
+                                        <field name="is_active" widget="boolean_toggle" string="Hoạt động"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Ghi chú" name="note">
+                                <field name="note" placeholder="Ghi chú về cấu trúc lương..."/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- List view cho Structure -->
+        <record id="view_payroll_structure_list" model="ir.ui.view">
+            <field name="name">payroll.structure.list</field>
+            <field name="model">payroll.structure</field>
+            <field name="arch" type="xml">
+                <list string="Cấu trúc lương">
+                    <field name="sequence" widget="handle"/>
+                    <field name="name"/>
+                    <field name="code"/>
+                    <field name="active" widget="boolean_toggle"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Action Structure -->
+        <record id="action_payroll_structure" model="ir.actions.act_window">
+            <field name="name">Cấu trúc lương</field>
+            <field name="res_model">payroll.structure</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <!-- Form view Quy tắc lương (standalone) -->
+        <record id="view_payroll_salary_rule_form" model="ir.ui.view">
+            <field name="name">payroll.salary.rule.form</field>
+            <field name="model">payroll.salary.rule</field>
+            <field name="arch" type="xml">
+                <form string="Quy tắc lương">
+                    <sheet>
+                        <div class="alert alert-warning" role="alert" invisible="is_active">
+                            <strong>⚠️ Quy tắc này đang TẮT</strong> - Sẽ không được tính vào lương nhân viên
+                        </div>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" placeholder="Tên quy tắc"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="code"/>
+                                <field name="category"/>
+                                <field name="structure_id"/>
+                            </group>
+                            <group>
+                                <field name="sequence"/>
+                                <field name="amount_type"/>
+                                <field name="appears_on_payslip"/>
+                                <field name="is_active" widget="boolean_toggle" string="Hoạt động"/>
+                            </group>
+                        </group>
+                        <group string="Công thức tính" invisible="amount_type == 'code'">
+                            <field name="amount_fixed" invisible="amount_type != 'fixed'"/>
+                            <field name="amount_percentage" invisible="amount_type != 'percentage'"/>
+                            <field name="amount_percentage_base" invisible="amount_type != 'percentage'" placeholder="VD: BASIC"/>
+                        </group>
+                        <notebook>
+                            <page string="Python Code" invisible="amount_type != 'code'">
+                                <field name="amount_python_compute" widget="ace" options="{'mode': 'python'}" nolabel="1"/>
+                            </page>
+                            <page string="Ghi chú">
+                                <field name="note" placeholder="Ghi chú về quy tắc..."/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- List view Quy tắc lương -->
+        <record id="view_payroll_salary_rule_list" model="ir.ui.view">
+            <field name="name">payroll.salary.rule.list</field>
+            <field name="model">payroll.salary.rule</field>
+            <field name="arch" type="xml">
+                <list string="Quy tắc lương" decoration-muted="not is_active">
+                    <field name="sequence" widget="handle"/>
+                    <field name="name"/>
+                    <field name="code"/>
+                    <field name="category"/>
+                    <field name="structure_id"/>
+                    <field name="amount_type"/>
+                    <field name="is_active" widget="boolean_toggle" string="Hoạt động"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Action Quy tắc lương -->
+        <record id="action_payroll_salary_rule" model="ir.actions.act_window">
+            <field name="name">Quy tắc lương</field>
+            <field name="res_model">payroll.salary.rule</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <!-- List view Phiếu lương -->
+        <record id="view_payroll_payslip_list" model="ir.ui.view">
+            <field name="name">payroll.payslip.list</field>
+            <field name="model">payroll.payslip</field>
+            <field name="arch" type="xml">
+                <list string="Phiếu lương">
+                    <field name="name"/>
+                    <field name="employee_id"/>
+                    <field name="date_from"/>
+                    <field name="date_to"/>
+                    <field name="net_wage"/>
+                    <field name="state"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Form view Phiếu lương -->
+        <record id="view_payroll_payslip_form" model="ir.ui.view">
+            <field name="name">payroll.payslip.form</field>
+            <field name="model">payroll.payslip</field>
+            <field name="arch" type="xml">
+                <form string="Phiếu lương">
+                    <header>
+                        <button name="action_compute_sheet" type="object" string="Tính lương" class="btn-primary" invisible="state != 'draft'"/>
+                        <button name="action_payslip_verify" type="object" string="Gửi xác nhận" class="btn-warning" invisible="state != 'draft'"/>
+                        <button name="action_payslip_done" type="object" string="Hoàn thành" class="btn-success" invisible="state != 'verify'"/>
+                        <button name="action_payslip_draft" type="object" string="Đặt lại" class="btn-secondary" invisible="state == 'draft'"/>
+                        <button name="action_payslip_cancel" type="object" string="Hủy" class="btn-danger" invisible="state == 'cancel'"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,verify,done,cancel"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="employee_id" readonly="state != 'draft'" required="1"/>
+                                <field name="contract_id" readonly="state != 'draft'"/>
+                                <field name="date_from" readonly="state != 'draft'" required="1"/>
+                                <field name="date_to" readonly="state != 'draft'" required="1"/>
+                            </group>
+                            <group>
+                                <field name="structure_id" readonly="state != 'draft'" required="1"/>
+                                <field name="date_payment" readonly="state != 'draft'"/>
+                                <field name="company_id" readonly="1"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Chi tiết lương">
+                                <field name="line_ids">
+                                    <list editable="bottom">
+                                        <field name="name"/>
+                                        <field name="code"/>
+                                        <field name="category"/>
+                                        <field name="amount"/>
+                                        <field name="appears_on_payslip"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Tổng hợp">
+                                <group>
+                                    <group string="Lương">
+                                        <field name="basic_wage" readonly="1"/>
+                                        <field name="total_allowance" readonly="1"/>
+                                        <field name="gross_wage" readonly="1"/>
+                                    </group>
+                                    <group string="Bảo hiểm">
+                                        <field name="bhxh_amount" readonly="1"/>
+                                        <field name="bhyt_amount" readonly="1"/>
+                                        <field name="bhtn_amount" readonly="1"/>
+                                        <field name="total_insurance" readonly="1"/>
+                                    </group>
+                                    <group string="Khấu trừ">
+                                        <field name="personal_income_tax" readonly="1"/>
+                                        <field name="total_deduction" readonly="1"/>
+                                        <field name="net_wage" readonly="1" class="oe_subtotal_footer"/>
+                                    </group>
+                                </group>
+                            </page>
+                            <page string="Ghi chú">
+                                <field name="note"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Action cho Phiếu lương -->
+        <record id="action_payroll_payslip" model="ir.actions.act_window">
+            <field name="name">Phiếu lương</field>
+            <field name="res_model">payroll.payslip</field>
+            <field name="view_mode">list,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Tạo phiếu lương đầu tiên!
+                </p>
+                <p>
+                    Quản lý phiếu lương nhân viên hàng tháng.
+                </p>
+            </field>
+        </record>
+    </data>
+</odoo>

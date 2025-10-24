@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Menu gốc -->
+        <menuitem id="menu_root_employee"
+                  name="Quản lý Nhân viên"
+                  sequence="10"
+                  groups="employee_management.group_employee"/>
+
+        <!-- 1. Hồ sơ Nhân viên -->
+        <menuitem id="menu_employee_management_sub"
+                  name="Hồ sơ Nhân viên"
+                  parent="menu_root_employee"
+                  action="action_employee_management"
+                  sequence="10"
+                  groups="employee_management.group_employee"/>
+
+        <!-- 2. Hợp đồng Lao động -->
+        <menuitem id="menu_contract_management_sub"
+                  name="Hợp đồng Lao động"
+                  parent="menu_root_employee"
+                  action="action_contract_management"
+                  sequence="20"
+                  groups="employee_management.group_employee"/>
+
+        <!-- 3. Phiếu lương -->
+        <menuitem id="menu_payslip"
+                  name="Phiếu lương"
+                  parent="menu_root_employee"
+                  action="action_payroll_payslip"
+                  sequence="30"
+                  groups="employee_management.group_payroll_employee"/>
+
+        <!-- 4. Cấu trúc lương (Cán bộ và Giám đốc) -->
+        <menuitem id="menu_salary_structure"
+                  name="Cấu trúc lương"
+                  parent="menu_root_employee"
+                  action="action_payroll_structure"
+                  sequence="40"
+                  groups="employee_management.group_payroll_officer,employee_management.group_payroll_manager"/>
+
+        <!-- 5. Cấu hình (chỉ Giám đốc) -->
+        <menuitem id="menu_payroll_configuration"
+                  name="Cấu hình"
+                  parent="menu_root_employee"
+                  sequence="100"
+                  groups="employee_management.group_manager"/>
+
+        <menuitem id="menu_salary_rules"
+                  name="Quy tắc lương"
+                  parent="menu_payroll_configuration"
+                  action="action_payroll_salary_rule"
+                  sequence="10"
+                  groups="employee_management.group_manager"/>
+
+        <menuitem id="menu_contribution_types"
+                  name="Kiểu đóng góp"
+                  parent="menu_payroll_configuration"
+                  action="action_contribution_type"
+                  sequence="20"
+                  groups="employee_management.group_manager"/>
+    </data>
+</odoo>

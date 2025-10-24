@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_contract_cancel_wizard" model="ir.ui.view">
+            <field name="name">employee.contract.cancel.wizard.form</field>
+            <field name="model">employee.contract.cancel.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Hủy Hợp đồng">
+                    <group>
+                        <field name="contract_id" readonly="1"/>
+                        <field name="reason" placeholder="Nhập lý do hủy hợp đồng..."/>
+                    </group>
+                    <footer>
+                        <button name="action_confirm_cancel" type="object" string="Xác nhận Hủy" 
+                               class="btn-primary"/>
+                        <button string="Hủy bỏ" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_contract_cancel_wizard" model="ir.actions.act_window">
+            <field name="name">Hủy Hợp đồng</field>
+            <field name="res_model">employee.contract.cancel.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+            <field name="context">{'default_contract_id': active_id}</field>
+        </record>
+
+        <record id="view_contract_management_form" model="ir.ui.view">
+            <field name="name">employee.management.contract.form</field>
+            <field name="model">employee.management.contract</field>
+            <field name="arch" type="xml">
+                <form string="Hợp đồng Lao động">
+                    <header>
+                        <button name="action_start_contract" type="object" string="Khởi động"
+                            class="btn-primary" invisible="state not in ['draft']"/>      
+
+                        <button name="%(action_contract_renew_wizard)d" type="action" string="Gia hạn"
+                            class="btn-warning"
+                            invisible="state != 'expired'"
+                        />
+
+                        <button name="%(action_contract_cancel_wizard)d" type="action" string="Hủy"
+                            class="btn-danger" invisible="state in ['cancel']"/>
+
+
+
+
+
+
+
+                        <field name="state" widget="statusbar" statusbar_visible="draft,open,expired,cancel"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" placeholder="Tham chiếu Hợp đồng..."/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group string="Thông tin chung">
+                                <field name="employee_id"/>
+                                <field name="department"/>
+                                <field name="position"/>
+                                <field name="salary_mode" placeholder="Chọn chế độ lương..."/>
+                                <field name="tax_policy" placeholder="Chọn chính sách thuế TNCN..."/>
+                            </group>
+                            <group>
+                                <field name="currency_id" invisible="1"/>
+                            </group>
+                        </group>
+
+                        <group string="Thông tin Hủy" invisible="state != 'cancel'">
+                            <field name="cancel_date" readonly="1"/>
+                            <field name="cancel_reason" readonly="1"/>
+                        </group>
+                        
+                        <notebook>
+                            <page string="Chi tiết Hợp đồng" name="contract_details">
+                                <group>
+                                    <group string="Điều khoản Hợp đồng">
+                                        <field name="date_start"/>
+                                        <field name="date_end"/>
+                                        <field name="trial_date_end"/>
+                                        <field name="working_hours"/>
+                                    </group>
+                                </group>
+                            </page>
+
+                            <page string="Thông tin Lương" name="salary_info">
+                                <group style="margin-bottom: 24px;">
+                                    <group string="Đãi ngộ hàng Tháng (bằng tiền)">
+                                        <field name="base_wage" string="Tiền công/tiền lương"/>
+                                    </group>
+                                </group>
+
+                                <separator string="Phúc lợi hàng tháng" style="margin-top: 16px; margin-bottom: 16px;"/>
+                                <group style="margin-bottom: 24px;">
+                                    <field name="benefit_ids" nolabel="1"/>
+                                    <field name="total_benefit" readonly="1" string="Tổng Phúc lợi" style="margin-top: 8px;"/>
+                                </group>
+                                
+                                <separator style="margin-top: 16px; margin-bottom: 16px;"/>
+                                <group style="margin-top: 16px;">
+                                    <field name="total_salary" string="Lương Tổng" readonly="1" class="oe_subtotal_footer_separator"/>
+                                </group>
+                            </page>
+
+                            <page string="Ghi nhận Đóng góp" name="contributions">
+                                
+
+                                <group style="margin-bottom: 24px;">
+                                    <field name="contribution_ids" nolabel="1"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_contract_benefit_list" model="ir.ui.view">
+            <field name="name">employee.management.contract.benefit.list</field>
+            <field name="model">employee.management.contract.benefit</field>
+            <field name="arch" type="xml">
+                <list editable="bottom">
+                    <field name="name"/>
+                    <field name="benefit_type"/>
+                    <field name="amount"/>
+                </list>
+            </field>
+        </record>
+        
+        <record id="view_contract_benefit_form" model="ir.ui.view">
+            <field name="name">employee.management.contract.benefit.form</field>
+            <field name="model">employee.management.contract.benefit</field>
+            <field name="arch" type="xml">
+                <form>
+                    <group>
+                        <field name="name"/>
+                        <field name="benefit_type"/>
+                        <field name="amount"/>
+                    </group>
+                </form>
+            </field>
+        </record>
+        
+        <record id="view_contribution_type_list" model="ir.ui.view">
+            <field name="name">employee.management.contribution.type.list</field>
+            <field name="model">employee.management.contribution.type</field>
+            <field name="arch" type="xml">
+                <list string="Kiểu Đóng góp" editable="bottom">
+                    <field name="sequence" widget="handle"/>
+                    <field name="name"/>
+                    <field name="code"/>
+                    <field name="description"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_contribution_type_form" model="ir.ui.view">
+            <field name="name">employee.management.contribution.type.form</field>
+            <field name="model">employee.management.contribution.type</field>
+            <field name="arch" type="xml">
+                <form string="Kiểu Đóng góp">
+                    <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="toggle_active" type="object" class="oe_stat_button" icon="fa-archive">
+                                <field name="active" widget="boolean_button" options='{"terminology": "archive"}'/>
+                            </button>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="name" placeholder="VD: Bảo hiểm xã hội"/>
+                                <field name="code" placeholder="VD: BHXH"/>
+                            </group>
+                            <group>
+                                <field name="sequence"/>
+                            </group>
+                        </group>
+                        <group>
+                            <field name="description" placeholder="Mô tả chi tiết về kiểu đóng góp này..."/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+
+        <record id="view_contract_contribution_list" model="ir.ui.view">
+            <field name="name">employee.management.contract.contribution.list</field>
+            <field name="model">employee.management.contract.contribution</field>
+            <field name="arch" type="xml">
+                <list editable="bottom">
+                    <field name="contribution_type_id" 
+                            options="{'no_create_edit': True}"
+                            placeholder="Chọn kiểu đóng góp..."/>
+                    <field name="name" readonly="1"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_contract_contribution_form" model="ir.ui.view">
+            <field name="name">employee.management.contract.contribution.form</field>
+            <field name="model">employee.management.contract.contribution</field>
+            <field name="arch" type="xml">
+                <form>
+                    <group>
+                        <field name="contribution_type_id" options="{'no_create_edit': True}"/>
+                        <!-- <field name="name" readonly="1"/> -->
+                    </group>
+                </form>
+            </field>
+        </record>
+        
+        <record id="view_contract_management_list" model="ir.ui.view">
+            <field name="name">employee.management.contract.list</field>
+            <field name="model">employee.management.contract</field>
+            <field name="arch" type="xml">
+                <list string="Danh sách Hợp đồng">
+                    <field name="name"/>
+                    <field name="employee_id"/>
+                    <field name="date_start"/>
+                    <field name="date_end"/>
+                    <field name="working_hours"/>
+                    <field name="total_salary" groups="employee_management_system.group_manager"/>
+                    <field name="state"/>
+                </list>
+            </field>
+        </record>
+        
+        <record id="view_contract_management_search" model="ir.ui.view">
+            <field name="name">employee.management.contract.search</field>
+            <field name="model">employee.management.contract</field>
+            <field name="arch" type="xml">
+                <search string="Tìm kiếm Hợp đồng">
+                    <field name="name"/>
+                    <field name="employee_id"/>
+                    <field name="department"/>
+                    <field name="position"/>
+                    <separator/>
+                    <filter string="Đang hoạt động" name="active" domain="[('state', '=', 'open')]"/>
+                    <filter string="Nháp" name="draft" domain="[('state', '=', 'draft')]"/>
+                    <filter string="Đã hủy" name="cancelled" domain="[('state', '=', 'cancel')]"/>
+                    <filter string="Đã hết hạn" name="expired" domain="[('state', '=', 'expired')]"/>
+                    <separator/>
+                    <filter string="Hợp đồng của tôi" name="my_contracts" 
+                            domain="[('employee_id.name', '=', uid)]"/>
+                    <separator/>
+                    <group expand="0" string="Nhóm theo">
+                        <filter string="Trạng thái" name="group_state" context="{'group_by': 'state'}"/>
+                        <filter string="Nhân viên" name="group_employee" context="{'group_by': 'employee_id'}"/>
+                        <filter string="Phòng ban" name="group_department" context="{'group_by': 'department'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+        
+        <record id="view_contract_management_kanban" model="ir.ui.view">
+            <field name="name">employee.management.contract.kanban</field>
+            <field name="model">employee.management.contract</field>
+            <field name="arch" type="xml">
+                <kanban class="o_hr_contract_kanban" default_group_by="state">
+                    <field name="color"/>
+                    <field name="state"/>
+                    <field name="name"/>
+                    <field name="employee_id"/>
+                    <field name="total_salary"/>
+                    <field name="date_start"/>
+                    <field name="date_end"/>
+                    <templates>
+                        <t t-name="kanban-box">
+                            <div t-attf-class="oe_kanban_global_click_edit oe_semantic_html_override oe_kanban_card">
+                                <div class="o_kanban_record_top">
+                                    <div class="o_kanban_record_headings">
+                                        <h4 class="o_kanban_record_title">
+                                            <a type="open"><field name="name"/></a>
+                                        </h4>
+                                        <strong class="o_kanban_record_subtitle">
+                                            <field name="employee_id"/>
+                                        </strong>
+                                    </div>
+                                </div>
+                                
+                                <div class="o_kanban_record_body">
+                                    <div class="mb-1">
+                                        Bắt đầu: <field name="date_start"/>
+                                    </div>
+                                    <div class="mb-1">
+                                        <t t-if="record.date_end.value">
+                                            Kết thúc: <field name="date_end"/>
+                                        </t>
+                                        <t t-else="">
+                                            Không thời hạn
+                                        </t>
+                                    </div>
+
+                                    <div class="mt-2" groups="employee_management_system.group_manager">
+                                        Lương: <t t-esc="record.total_salary.value"/> VND
+                                    </div>
+                                </div>
+                                
+                                <div class="o_kanban_record_bottom">
+                                    <field name="state" widget="label_selection"/>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+        
+        <record id="action_contract_management" model="ir.actions.act_window">
+            <field name="name">Hợp đồng Lao động</field>
+            <field name="res_model">employee.management.contract</field>
+            <field name="view_mode">kanban,list,form</field>
+            <field name="search_view_id" ref="view_contract_management_search"/>
+            <field name="context">{'search_default_active': 1}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Tạo hợp đồng lao động đầu tiên!
+                </p>
+                <p>
+                    Quản lý hợp đồng lao động và thông tin lương bằng một cách chi tiết.
+                </p>
+            </field>
+        </record>
+
+    </data>
+</odoo>

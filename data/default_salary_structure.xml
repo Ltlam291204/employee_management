@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Sequence cho Payslip -->
+        <record id="seq_payroll_payslip" model="ir.sequence">
+            <field name="name">Payroll Payslip Sequence</field>
+            <field name="code">payroll.payslip</field>
+            <field name="prefix">PAY/</field>
+            <field name="padding">5</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+        </record>
+
+        <!-- Cấu trúc lương Việt Nam -->
+        <record id="salary_structure_vn" model="payroll.structure">
+            <field name="name">Cấu trúc lương Việt Nam</field>
+            <field name="code">VN_SALARY</field>
+            <field name="sequence">10</field>
+            <field name="note">Cấu trúc lương theo quy định tại Việt Nam với BHXH, BHYT, BHTN và Thuế TNCN (chỉ tính nếu có ghi nhận đóng góp)</field>
+        </record>
+
+        <!-- 1. Lương cơ bản -->
+        <record id="rule_basic_salary" model="payroll.salary.rule">
+            <field name="name">Lương cơ bản</field>
+            <field name="code">BASIC</field>
+            <field name="sequence">10</field>
+            <field name="category">basic</field>
+            <field name="structure_id" ref="salary_structure_vn"/>
+            <field name="amount_type">code</field>
+            <field name="appears_on_payslip">True</field>
+            <field name="amount_python_compute">
+# Lấy lương cơ bản từ hợp đồng
+if payslip.contract_id:
+    result = payslip.contract_id.base_wage
+else:
+    result = 0.0
+            </field>
+        </record>
+
+        <!-- 2. Tổng phúc lợi từ benefits -->
+        <record id="rule_total_benefits" model="payroll.salary.rule">
+            <field name="name">Tổng phúc lợi</field>
+            <field name="code">BENEFITS</field>
+            <field name="sequence">20</field>
+            <field name="category">allowance</field>
+            <field name="structure_id" ref="salary_structure_vn"/>
+            <field name="amount_type">code</field>
+            <field name="appears_on_payslip">True</field>
+            <field name="amount_python_compute">
+# Lấy tổng các phúc lợi từ hợp đồng
+if payslip.contract_id:
+    result = sum(payslip.contract_id.benefit_ids.mapped('amount'))
+else:
+    result = 0.0
+            </field>
+        </record>
+
+        <!-- 3. Tổng thu nhập (Gross) -->
+        <record id="rule_gross_salary" model="payroll.salary.rule">
+            <field name="name">Tổng thu nhập</field>
+            <field name="code">GROSS</field>
+            <field name="sequence">50</field>
+            <field name="category">gross</field>
+            <field name="structure_id" ref="salary_structure_vn"/>
+            <field name="amount_type">code</field>
+            <field name="appears_on_payslip">True</field>
+            <field name="amount_python_compute">
+# Tổng thu nhập = Lương cơ bản + Phúc lợi
+result = rules.get('BASIC', 0) + rules.get('BENEFITS', 0)
+            </field>
+        </record>
+
+        <!-- 4. BHXH - 8% (CHỈ tính nếu có ghi nhận đóng góp BHXH trong hợp đồng) -->
+        <record id="rule_bhxh" model="payroll.salary.rule">
+            <field name="name">Bảo hiểm xã hội (8%)</field>
+            <field name="code">BHXH</field>
+            <field name="sequence">60</field>
+            <field name="category">deduction</field>
+            <field name="structure_id" ref="salary_structure_vn"/>
+            <field name="amount_type">code</field>
+            <field name="appears_on_payslip">True</field>
+            <field name="amount_python_compute"><![CDATA[
+# BHXH = 8% lương cơ bản - CHỈ tính nếu có ghi nhận đóng góp BHXH
+if payslip.contract_id:
+    # Kiểm tra xem hợp đồng có ghi nhận đóng góp BHXH không
+    has_bhxh = payslip.contract_id.contribution_ids.filtered(
+        lambda c: c.contribution_type_id.code == 'BHXH'
+    )
+    if has_bhxh:
+        basic = rules.get('BASIC', 0)
+        result = -basic * 0.08
+    else:
+        result = 0.0
+else:
+    result = 0.0
+            ]]></field>
+        </record>
+
+        <!-- 5. BHYT - 1.5% (CHỈ tính nếu có ghi nhận đóng góp BHYT trong hợp đồng) -->
+        <record id="rule_bhyt" model="payroll.salary.rule">
+            <field name="name">Bảo hiểm y tế (1.5%)</field>
+            <field name="code">BHYT</field>
+            <field name="sequence">70</field>
+            <field name="category">deduction</field>
+            <field name="structure_id" ref="salary_structure_vn"/>
+            <field name="amount_type">code</field>
+            <field name="appears_on_payslip">True</field>
+            <field name="amount_python_compute"><![CDATA[
+# BHYT = 1.5% lương cơ bản - CHỈ tính nếu có ghi nhận đóng góp BHYT
+if payslip.contract_id:
+    # Kiểm tra xem hợp đồng có ghi nhận đóng góp BHYT không
+    has_bhyt = payslip.contract_id.contribution_ids.filtered(
+        lambda c: c.contribution_type_id.code == 'BHYT'
+    )
+    if has_bhyt:
+        basic = rules.get('BASIC', 0)
+        result = -basic * 0.015
+    else:
+        result = 0.0
+else:
+    result = 0.0
+            ]]></field>
+        </record>
+
+        <!-- 6. BHTN - 1% (CHỈ tính nếu có ghi nhận đóng góp BHTN trong hợp đồng) -->
+        <record id="rule_bhtn" model="payroll.salary.rule">
+            <field name="name">Bảo hiểm thất nghiệp (1%)</field>
+            <field name="code">BHTN</field>
+            <field name="sequence">80</field>
+            <field name="category">deduction</field>
+            <field name="structure_id" ref="salary_structure_vn"/>
+            <field name="amount_type">code</field>
+            <field name="appears_on_payslip">True</field>
+            <field name="amount_python_compute"><![CDATA[
+# BHTN = 1% lương cơ bản - CHỈ tính nếu có ghi nhận đóng góp BHTN
+if payslip.contract_id:
+    # Kiểm tra xem hợp đồng có ghi nhận đóng góp BHTN không
+    has_bhtn = payslip.contract_id.contribution_ids.filtered(
+        lambda c: c.contribution_type_id.code == 'BHTN'
+    )
+    if has_bhtn:
+        basic = rules.get('BASIC', 0)
+        max_bhtn = 4960000 * 20  # Lương tối thiểu vùng 1 năm 2024
+        bhtn_base = min(basic, max_bhtn)
+        result = -bhtn_base * 0.01
+    else:
+        result = 0.0
+else:
+    result = 0.0
+            ]]></field>
+        </record>
+
+        <!-- 7. Thu nhập trước thuế -->
+        <record id="rule_taxable_income" model="payroll.salary.rule">
+            <field name="name">Thu nhập trước thuế</field>
+            <field name="code">TAXABLE</field>
+            <field name="sequence">90</field>
+            <field name="category">other</field>
+            <field name="structure_id" ref="salary_structure_vn"/>
+            <field name="amount_type">code</field>
+            <field name="appears_on_payslip">False</field>
+            <field name="amount_python_compute">
+# Thu nhập trước thuế = Gross - BHXH - BHYT - BHTN
+gross = rules.get('GROSS', 0)
+bhxh = abs(rules.get('BHXH', 0))
+bhyt = abs(rules.get('BHYT', 0))
+bhtn = abs(rules.get('BHTN', 0))
+result = gross - bhxh - bhyt - bhtn
+            </field>
+        </record>
+
+        <!-- 8. Thuế TNCN -->
+        <record id="rule_personal_income_tax" model="payroll.salary.rule">
+            <field name="name">Thuế thu nhập cá nhân</field>
+            <field name="code">PIT</field>
+            <field name="sequence">100</field>
+            <field name="category">deduction</field>
+            <field name="structure_id" ref="salary_structure_vn"/>
+            <field name="amount_type">code</field>
+            <field name="appears_on_payslip">True</field>
+            <field name="amount_python_compute"><![CDATA[
+# Tính thuế TNCN theo bậc thang lũy tiến
+taxable = rules.get('TAXABLE', 0)
+
+# Giảm trừ gia cảnh: 11 triệu cho bản thân
+deduction = 11000000
+
+# Thu nhập tính thuế
+taxable_after_deduction = max(0, taxable - deduction)
+
+# Bậc thang thuế TNCN 2024
+tax = 0
+if taxable_after_deduction <= 5000000:
+    tax = taxable_after_deduction * 0.05
+elif taxable_after_deduction <= 10000000:
+    tax = 5000000 * 0.05 + (taxable_after_deduction - 5000000) * 0.10
+elif taxable_after_deduction <= 18000000:
+    tax = 5000000 * 0.05 + 5000000 * 0.10 + (taxable_after_deduction - 10000000) * 0.15
+elif taxable_after_deduction <= 32000000:
+    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + (taxable_after_deduction - 18000000) * 0.20
+elif taxable_after_deduction <= 52000000:
+    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + (taxable_after_deduction - 32000000) * 0.25
+elif taxable_after_deduction <= 80000000:
+    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + 20000000 * 0.25 + (taxable_after_deduction - 52000000) * 0.30
+else:
+    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + 20000000 * 0.25 + 28000000 * 0.30 + (taxable_after_deduction - 80000000) * 0.35
+
+result = -tax
+            ]]></field>
+        </record>
+
+        <!-- 9. Lương thực nhận (Net) -->
+        <record id="rule_net_salary" model="payroll.salary.rule">
+            <field name="name">Lương thực nhận</field>
+            <field name="code">NET</field>
+            <field name="sequence">110</field>
+            <field name="category">net</field>
+            <field name="structure_id" ref="salary_structure_vn"/>
+            <field name="amount_type">code</field>
+            <field name="appears_on_payslip">True</field>
+            <field name="amount_python_compute">
+# Lương thực nhận = Gross - BHXH - BHYT - BHTN - Thuế TNCN
+gross = rules.get('GROSS', 0)
+bhxh = abs(rules.get('BHXH', 0))
+bhyt = abs(rules.get('BHYT', 0))
+bhtn = abs(rules.get('BHTN', 0))
+pit = abs(rules.get('PIT', 0))
+result = gross - bhxh - bhyt - bhtn - pit
+            </field>
+        </record>
+
+    </data>
+</odoo>
