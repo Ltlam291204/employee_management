@@ -106,7 +106,7 @@
                                 <field name="contract_ids" readonly="1">
                                     <tree>
                                         <field name="name"/> 
-                                        <field name="total_salary" groups="employee_management.group_manager"/>
+                                        <field name="current_salary" groups="employee_management.group_payroll_officer"/>
                                         <field name="state"/>
                                     </tree>
                                 </field>
