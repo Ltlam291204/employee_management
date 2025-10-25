@@ -103,32 +103,39 @@
                         
                         <notebook>
                             <page string="Hợp đồng" name="contracts">
-                                <field name="contract_ids" readonly="1">
-                                    <tree>
-                                        <field name="name"/> 
-                                        <field name="date_start"/>
-                                        <field name="date_end"/>
-                                        <field name="total_salary" groups="employee_management.group_manager"/>
-                                        <field name="state"/>
-                                    </tree>
-                                </field>
+                                <field name="contract_ids" readonly="1" context="{'list_view_ref': 'employee_management.view_contract_employee_inline_list'}"/>
                             </page>
                             
                             <page string="Phiếu lương" name="payslips" groups="employee_management.group_payroll_employee">
                                 <field name="payslip_ids" readonly="1">
-                                    <tree>
+                                    <list>
                                         <field name="name"/>
                                         <field name="date_from"/>
                                         <field name="date_to"/>
                                         <field name="gross_wage"/>
                                         <field name="net_wage"/>
                                         <field name="state"/>
-                                    </tree>
+                                    </list>
                                 </field>
                             </page>
                         </notebook>
                     </sheet>
                 </form>
+            </field>
+        </record>
+        
+        <!-- Inline list view for contracts in employee form -->
+        <record id="view_contract_employee_inline_list" model="ir.ui.view">
+            <field name="name">employee.management.contract.employee.inline.list</field>
+            <field name="model">employee.management.contract</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/> 
+                    <field name="date_start"/>
+                    <field name="date_end"/>
+                    <field name="total_salary" groups="employee_management.group_manager"/>
+                    <field name="state"/>
+                </list>
             </field>
         </record>
         

@@ -17,16 +17,19 @@ class PayrollPayslip(models.Model):
                                    states={'draft': [('readonly', False)]})
     
     contract_id = fields.Many2one('employee.management.contract', 'Hợp đồng',
-                                   readonly=True, states={'draft': [('readonly', False)]})
+                                   readonly=True, states={'draft': [('readonly', False)]},
+                                   domain="[('employee_id', '=', employee_id), ('state', '=', 'open')]")
     
     structure_id = fields.Many2one('payroll.structure', 'Cấu trúc lương',
                                     required=True, readonly=True,
                                     states={'draft': [('readonly', False)]})
     
     date_from = fields.Date('Từ ngày', required=True, readonly=True,
-                             states={'draft': [('readonly', False)]})
+                             states={'draft': [('readonly', False)]},
+                             default=lambda self: fields.Date.today().replace(day=1))
     date_to = fields.Date('Đến ngày', required=True, readonly=True,
-                           states={'draft': [('readonly', False)]})
+                           states={'draft': [('readonly', False)]},
+                           default=lambda self: fields.Date.today())
     
     date_payment = fields.Date('Ngày thanh toán', readonly=True,
                                 states={'draft': [('readonly', False)]})
@@ -70,11 +73,11 @@ class PayrollPayslip(models.Model):
             vals['name'] = self.env['ir.sequence'].next_by_code('payroll.payslip') or 'New'
         return super().create(vals)
     
-    @api.onchange('employee_id', 'date_from', 'date_to')
+    @api.onchange('employee_id')
     def _onchange_employee(self):
-        """Tự động lấy contract khi chọn nhân viên"""
+        """Tự động lấy hợp đồng và cấu trúc lương khi chọn nhân viên"""
         if self.employee_id:
-            # Tìm hợp đồng đang hoạt động của nhân viên
+            # Tìm hợp đồng đang hoạt động
             contract = self.env['employee.management.contract'].search([
                 ('employee_id', '=', self.employee_id.id),
                 ('state', '=', 'open'),
@@ -82,53 +85,102 @@ class PayrollPayslip(models.Model):
                 '|', ('date_end', '=', False), ('date_end', '>=', self.date_from or fields.Date.today())
             ], limit=1, order='date_start desc')
             
-            # Tự động gán contract nếu tìm được
             if contract:
                 self.contract_id = contract
+            else:
+                self.contract_id = False
+                return {
+                    'warning': {
+                        'title': 'Cảnh báo',
+                        'message': f'Nhân viên {self.employee_id.display_name_char} không có hợp đồng đang hoạt động!'
+                    }
+                }
             
-            # Nếu chưa chọn cấu trúc lương, tự động chọn cấu trúc VN
+            # Tự động chọn cấu trúc lương Việt Nam
             if not self.structure_id:
                 structure = self.env['payroll.structure'].search([('code', '=', 'VN_SALARY')], limit=1)
                 if structure:
                     self.structure_id = structure
     
+    @api.onchange('date_from', 'date_to')
+    def _onchange_dates(self):
+        """Cập nhật lại contract khi thay đổi ngày"""
+        if self.employee_id and self.date_from and self.date_to:
+            contract = self.env['employee.management.contract'].search([
+                ('employee_id', '=', self.employee_id.id),
+                ('state', '=', 'open'),
+                ('date_start', '<=', self.date_to),
+                '|', ('date_end', '=', False), ('date_end', '>=', self.date_from)
+            ], limit=1, order='date_start desc')
+            
+            if contract:
+                self.contract_id = contract
+    
     def action_compute_sheet(self):
-        """Tính toán phiếu lương - chỉ từ rule is_active=True"""
+        """Tính toán phiếu lương - CHỈ tính các rule is_active=True"""
         for payslip in self:
+            # Kiểm tra hợp đồng
             if not payslip.contract_id:
-                raise UserError('Nhân viên không có hợp đồng đang hoạt động!')
+                raise UserError(f'Nhân viên {payslip.employee_id.display_name_char} không có hợp đồng đang hoạt động!\n\n'
+                              f'Vui lòng kiểm tra:\n'
+                              f'- Hợp đồng có trạng thái "Đang làm việc"\n'
+                              f'- Ngày bắt đầu <= Đến ngày của phiếu lương\n'
+                              f'- Ngày kết thúc >= Từ ngày của phiếu lương (hoặc không có ngày kết thúc)')
             
             if not payslip.structure_id:
                 raise UserError('Vui lòng chọn cấu trúc lương!')
             
+            # Xóa các dòng cũ
             payslip.line_ids.unlink()
             
+            # Dictionary lưu kết quả tính toán của các rule
             rules = {}
             lines_to_create = []
             
-            for rule in payslip.structure_id.rule_ids.filtered(lambda r: r.is_active).sorted('sequence'):
-                amount = rule.compute_rule(
-                    contract=payslip.contract_id,
-                    employee=payslip.employee_id,
-                    payslip=payslip,
-                    rules=rules
-                )
-                
-                rules[rule.code] = amount
-                
-                lines_to_create.append({
-                    'payslip_id': payslip.id,
-                    'rule_id': rule.id,
-                    'name': rule.name,
-                    'code': rule.code,
-                    'category': rule.category,
-                    'sequence': rule.sequence,
-                    'amount': amount,
-                    'appears_on_payslip': rule.appears_on_payslip,
-                })
+            # Lấy tất cả rule ĐANG HOẠT ĐỘNG (is_active=True) và sắp xếp theo sequence
+            active_rules = payslip.structure_id.rule_ids.filtered(lambda r: r.is_active).sorted('sequence')
             
+            if not active_rules:
+                raise UserError(f'Cấu trúc lương "{payslip.structure_id.name}" không có quy tắc nào đang hoạt động!\n\n'
+                              f'Vui lòng vào Cấu trúc lương và bật (is_active=True) các quy tắc cần thiết.')
+            
+            # Tính toán từng rule
+            for rule in active_rules:
+                try:
+                    amount = rule.compute_rule(
+                        contract=payslip.contract_id,
+                        employee=payslip.employee_id,
+                        payslip=payslip,
+                        rules=rules
+                    )
+                    
+                    # Lưu kết quả vào dictionary
+                    rules[rule.code] = amount
+                    
+                    # Tạo dòng chi tiết
+                    lines_to_create.append({
+                        'payslip_id': payslip.id,
+                        'rule_id': rule.id,
+                        'name': rule.name,
+                        'code': rule.code,
+                        'category': rule.category,
+                        'sequence': rule.sequence,
+                        'amount': amount,
+                        'appears_on_payslip': rule.appears_on_payslip,
+                    })
+                except Exception as e:
+                    raise UserError(f'Lỗi khi tính toán quy tắc "{rule.name}" (Code: {rule.code}):\n\n{str(e)}')
+            
+            # Tạo tất cả dòng chi tiết
             self.env['payroll.payslip.line'].create(lines_to_create)
-            payslip.message_post(body='✅ Đã tính toán lại phiếu lương')
+            
+            # Log thông báo
+            payslip.message_post(
+                body=f'✅ Đã tính toán lại phiếu lương<br/>'
+                     f'Lương cơ bản: {payslip.basic_wage:,.0f} VNĐ<br/>'
+                     f'Tổng thu nhập: {payslip.gross_wage:,.0f} VNĐ<br/>'
+                     f'Thực nhận: {payslip.net_wage:,.0f} VNĐ'
+            )
     
     @api.depends('line_ids.amount')
     def _compute_totals(self):
