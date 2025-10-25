@@ -27,7 +27,8 @@
             <field name="category">basic</field>
             <field name="structure_id" ref="salary_structure_vn"/>
             <field name="amount_type">code</field>
-            <field name="appears_on_payslip">True</field>
+            <field name="appears_on_payslip" eval="True"/>
+            <field name="is_active" eval="True"/>
             <field name="amount_python_compute">
 # Lấy lương cơ bản từ hợp đồng
 if payslip.contract_id:
@@ -45,7 +46,8 @@ else:
             <field name="category">allowance</field>
             <field name="structure_id" ref="salary_structure_vn"/>
             <field name="amount_type">code</field>
-            <field name="appears_on_payslip">True</field>
+            <field name="appears_on_payslip" eval="True"/>
+            <field name="is_active" eval="True"/>
             <field name="amount_python_compute">
 # Lấy tổng các phúc lợi từ hợp đồng
 if payslip.contract_id:
@@ -63,7 +65,8 @@ else:
             <field name="category">gross</field>
             <field name="structure_id" ref="salary_structure_vn"/>
             <field name="amount_type">code</field>
-            <field name="appears_on_payslip">True</field>
+            <field name="appears_on_payslip" eval="True"/>
+            <field name="is_active" eval="True"/>
             <field name="amount_python_compute">
 # Tổng thu nhập = Lương cơ bản + Phúc lợi
 result = rules.get('BASIC', 0) + rules.get('BENEFITS', 0)
@@ -78,7 +81,8 @@ result = rules.get('BASIC', 0) + rules.get('BENEFITS', 0)
             <field name="category">deduction</field>
             <field name="structure_id" ref="salary_structure_vn"/>
             <field name="amount_type">code</field>
-            <field name="appears_on_payslip">True</field>
+            <field name="appears_on_payslip" eval="True"/>
+            <field name="is_active" eval="True"/>
             <field name="amount_python_compute"><![CDATA[
 # BHXH = 8% lương cơ bản - CHỈ tính nếu có ghi nhận đóng góp BHXH
 if payslip.contract_id:
@@ -104,7 +108,8 @@ else:
             <field name="category">deduction</field>
             <field name="structure_id" ref="salary_structure_vn"/>
             <field name="amount_type">code</field>
-            <field name="appears_on_payslip">True</field>
+            <field name="appears_on_payslip" eval="True"/>
+            <field name="is_active" eval="True"/>
             <field name="amount_python_compute"><![CDATA[
 # BHYT = 1.5% lương cơ bản - CHỈ tính nếu có ghi nhận đóng góp BHYT
 if payslip.contract_id:
@@ -130,7 +135,8 @@ else:
             <field name="category">deduction</field>
             <field name="structure_id" ref="salary_structure_vn"/>
             <field name="amount_type">code</field>
-            <field name="appears_on_payslip">True</field>
+            <field name="appears_on_payslip" eval="True"/>
+            <field name="is_active" eval="True"/>
             <field name="amount_python_compute"><![CDATA[
 # BHTN = 1% lương cơ bản - CHỈ tính nếu có ghi nhận đóng góp BHTN
 if payslip.contract_id:
@@ -158,7 +164,8 @@ else:
             <field name="category">other</field>
             <field name="structure_id" ref="salary_structure_vn"/>
             <field name="amount_type">code</field>
-            <field name="appears_on_payslip">False</field>
+            <field name="appears_on_payslip" eval="False"/>
+            <field name="is_active" eval="True"/>
             <field name="amount_python_compute">
 # Thu nhập trước thuế = Gross - BHXH - BHYT - BHTN
 gross = rules.get('GROSS', 0)
@@ -177,7 +184,8 @@ result = gross - bhxh - bhyt - bhtn
             <field name="category">deduction</field>
             <field name="structure_id" ref="salary_structure_vn"/>
             <field name="amount_type">code</field>
-            <field name="appears_on_payslip">True</field>
+            <field name="appears_on_payslip" eval="True"/>
+            <field name="is_active" eval="True"/>
             <field name="amount_python_compute"><![CDATA[
 # Tính thuế TNCN theo bậc thang lũy tiến
 taxable = rules.get('TAXABLE', 0)
@@ -217,7 +225,8 @@ result = -tax
             <field name="category">net</field>
             <field name="structure_id" ref="salary_structure_vn"/>
             <field name="amount_type">code</field>
-            <field name="appears_on_payslip">True</field>
+            <field name="appears_on_payslip" eval="True"/>
+            <field name="is_active" eval="True"/>
             <field name="amount_python_compute">
 # Lương thực nhận = Gross - BHXH - BHYT - BHTN - Thuế TNCN
 gross = rules.get('GROSS', 0)
