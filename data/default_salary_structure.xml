@@ -16,7 +16,7 @@
             <field name="name">Cấu trúc lương Việt Nam</field>
             <field name="code">VN_SALARY</field>
             <field name="sequence">10</field>
-            <field name="note">Cấu trúc lương theo quy định tại Việt Nam với BHXH, BHYT, BHTN và Thuế TNCN (chỉ tính nếu có ghi nhận đóng góp)</field>
+            <field name="note">Cấu trúc lương theo quy định tại Việt Nam với BHXH, BHYT, BHTN và Thuế TNCN</field>
         </record>
 
         <!-- 1. Lương cơ bản -->
@@ -29,17 +29,9 @@
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute"><![CDATA[
-# Lấy lương cơ bản từ hợp đồng - AN TOÀN
-result = 0.0
-try:
-    if payslip and payslip.contract_id:
-        base_wage = payslip.contract_id.base_wage
-        if base_wage:
-            result = float(base_wage)
-except Exception as e:
-    result = 0.0
-]]></field>
+            <field name="amount_python_compute">result = 0.0
+if payslip and payslip.contract_id and payslip.contract_id.base_wage:
+    result = float(payslip.contract_id.base_wage)</field>
         </record>
 
         <!-- 2. Tổng phúc lợi từ benefits -->
@@ -52,25 +44,11 @@ except Exception as e:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute"><![CDATA[
-# Lấy tổng các phúc lợi từ hợp đồng - AN TOÀN TUYỆT ĐỐI
-result = 0.0
-try:
-    if payslip and payslip.contract_id:
-        contract = payslip.contract_id
-        if contract and hasattr(contract, 'benefit_ids'):
-            benefits = contract.benefit_ids
-            # Kiểm tra benefits không phải None và là recordset
-            if benefits is not None:
-                for benefit in benefits:
-                    if benefit and hasattr(benefit, 'amount'):
-                        amount = benefit.amount
-                        if amount and amount > 0:
-                            result += float(amount)
-except Exception as e:
-    # Nếu có lỗi gì, trả về 0
-    result = 0.0
-]]></field>
+            <field name="amount_python_compute">result = 0.0
+if payslip and payslip.contract_id:
+    for benefit in payslip.contract_id.benefit_ids:
+        if benefit.amount:
+            result += float(benefit.amount)</field>
         </record>
 
         <!-- 3. Tổng thu nhập (Gross) -->
@@ -83,16 +61,9 @@ except Exception as e:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute"><![CDATA[
-# Tổng thu nhập = Lương cơ bản + Phúc lợi - AN TOÀN
-result = 0.0
-try:
-    basic = rules.get('BASIC', 0.0) or 0.0
-    benefits = rules.get('BENEFITS', 0.0) or 0.0
-    result = float(basic) + float(benefits)
-except Exception as e:
-    result = 0.0
-]]></field>
+            <field name="amount_python_compute">basic = rules.get('BASIC', 0.0) or 0.0
+benefits = rules.get('BENEFITS', 0.0) or 0.0
+result = float(basic) + float(benefits)</field>
         </record>
 
         <!-- 4. BHXH - 8% -->
@@ -105,30 +76,17 @@ except Exception as e:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute"><![CDATA[
-# BHXH = 8% lương cơ bản - CHỈ tính nếu có ghi nhận
-result = 0.0
-try:
-    if payslip and payslip.contract_id:
-        contract = payslip.contract_id
-        if contract and hasattr(contract, 'contribution_ids'):
-            contributions = contract.contribution_ids
-            if contributions:
-                has_bhxh = False
-                for c in contributions:
-                    if c and hasattr(c, 'contribution_type_id'):
-                        ctype = c.contribution_type_id
-                        if ctype and hasattr(ctype, 'code') and ctype.code == 'BHXH':
-                            has_bhxh = True
-                            break
-                
-                if has_bhxh:
-                    basic = rules.get('BASIC', 0.0) or 0.0
-                    if basic > 0:
-                        result = -float(basic) * 0.08
-except Exception as e:
-    result = 0.0
-]]></field>
+            <field name="amount_python_compute">result = 0.0
+if payslip and payslip.contract_id:
+    has_bhxh = False
+    for c in payslip.contract_id.contribution_ids:
+        if c.contribution_type_id and c.contribution_type_id.code == 'BHXH':
+            has_bhxh = True
+            break
+    if has_bhxh:
+        basic = rules.get('BASIC', 0.0) or 0.0
+        if basic &gt; 0:
+            result = -float(basic) * 0.08</field>
         </record>
 
         <!-- 5. BHYT - 1.5% -->
@@ -141,30 +99,17 @@ except Exception as e:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute"><![CDATA[
-# BHYT = 1.5% lương cơ bản - CHỈ tính nếu có ghi nhận
-result = 0.0
-try:
-    if payslip and payslip.contract_id:
-        contract = payslip.contract_id
-        if contract and hasattr(contract, 'contribution_ids'):
-            contributions = contract.contribution_ids
-            if contributions:
-                has_bhyt = False
-                for c in contributions:
-                    if c and hasattr(c, 'contribution_type_id'):
-                        ctype = c.contribution_type_id
-                        if ctype and hasattr(ctype, 'code') and ctype.code == 'BHYT':
-                            has_bhyt = True
-                            break
-                
-                if has_bhyt:
-                    basic = rules.get('BASIC', 0.0) or 0.0
-                    if basic > 0:
-                        result = -float(basic) * 0.015
-except Exception as e:
-    result = 0.0
-]]></field>
+            <field name="amount_python_compute">result = 0.0
+if payslip and payslip.contract_id:
+    has_bhyt = False
+    for c in payslip.contract_id.contribution_ids:
+        if c.contribution_type_id and c.contribution_type_id.code == 'BHYT':
+            has_bhyt = True
+            break
+    if has_bhyt:
+        basic = rules.get('BASIC', 0.0) or 0.0
+        if basic &gt; 0:
+            result = -float(basic) * 0.015</field>
         </record>
 
         <!-- 6. BHTN - 1% -->
@@ -177,32 +122,19 @@ except Exception as e:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute"><![CDATA[
-# BHTN = 1% lương cơ bản - CHỈ tính nếu có ghi nhận
-result = 0.0
-try:
-    if payslip and payslip.contract_id:
-        contract = payslip.contract_id
-        if contract and hasattr(contract, 'contribution_ids'):
-            contributions = contract.contribution_ids
-            if contributions:
-                has_bhtn = False
-                for c in contributions:
-                    if c and hasattr(c, 'contribution_type_id'):
-                        ctype = c.contribution_type_id
-                        if ctype and hasattr(ctype, 'code') and ctype.code == 'BHTN':
-                            has_bhtn = True
-                            break
-                
-                if has_bhtn:
-                    basic = rules.get('BASIC', 0.0) or 0.0
-                    if basic > 0:
-                        max_bhtn = 4960000 * 20
-                        bhtn_base = min(float(basic), max_bhtn)
-                        result = -bhtn_base * 0.01
-except Exception as e:
-    result = 0.0
-]]></field>
+            <field name="amount_python_compute">result = 0.0
+if payslip and payslip.contract_id:
+    has_bhtn = False
+    for c in payslip.contract_id.contribution_ids:
+        if c.contribution_type_id and c.contribution_type_id.code == 'BHTN':
+            has_bhtn = True
+            break
+    if has_bhtn:
+        basic = rules.get('BASIC', 0.0) or 0.0
+        if basic &gt; 0:
+            max_bhtn = 4960000 * 20
+            bhtn_base = min(float(basic), max_bhtn)
+            result = -bhtn_base * 0.01</field>
         </record>
 
         <!-- 7. Thu nhập trước thuế -->
@@ -215,18 +147,11 @@ except Exception as e:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="False"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute"><![CDATA[
-# Thu nhập trước thuế = Gross - BHXH - BHYT - BHTN
-result = 0.0
-try:
-    gross = rules.get('GROSS', 0.0) or 0.0
-    bhxh = abs(rules.get('BHXH', 0.0) or 0.0)
-    bhyt = abs(rules.get('BHYT', 0.0) or 0.0)
-    bhtn = abs(rules.get('BHTN', 0.0) or 0.0)
-    result = float(gross) - float(bhxh) - float(bhyt) - float(bhtn)
-except Exception as e:
-    result = 0.0
-]]></field>
+            <field name="amount_python_compute">gross = rules.get('GROSS', 0.0) or 0.0
+bhxh = abs(rules.get('BHXH', 0.0) or 0.0)
+bhyt = abs(rules.get('BHYT', 0.0) or 0.0)
+bhtn = abs(rules.get('BHTN', 0.0) or 0.0)
+result = float(gross) - float(bhxh) - float(bhyt) - float(bhtn)</field>
         </record>
 
         <!-- 8. Thuế TNCN -->
@@ -239,38 +164,26 @@ except Exception as e:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute"><![CDATA[
-# Tính thuế TNCN theo bậc thang lũy tiến
-result = 0.0
-try:
-    taxable = rules.get('TAXABLE', 0.0) or 0.0
-    taxable = float(taxable)
-    
-    # Giảm trừ gia cảnh
-    deduction = 11000000
-    taxable_after_deduction = max(0, taxable - deduction)
-    
-    # Bậc thang thuế
-    tax = 0.0
-    if taxable_after_deduction <= 5000000:
-        tax = taxable_after_deduction * 0.05
-    elif taxable_after_deduction <= 10000000:
-        tax = 5000000 * 0.05 + (taxable_after_deduction - 5000000) * 0.10
-    elif taxable_after_deduction <= 18000000:
-        tax = 5000000 * 0.05 + 5000000 * 0.10 + (taxable_after_deduction - 10000000) * 0.15
-    elif taxable_after_deduction <= 32000000:
-        tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + (taxable_after_deduction - 18000000) * 0.20
-    elif taxable_after_deduction <= 52000000:
-        tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + (taxable_after_deduction - 32000000) * 0.25
-    elif taxable_after_deduction <= 80000000:
-        tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + 20000000 * 0.25 + (taxable_after_deduction - 52000000) * 0.30
-    else:
-        tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + 20000000 * 0.25 + 28000000 * 0.30 + (taxable_after_deduction - 80000000) * 0.35
-    
-    result = -tax
-except Exception as e:
-    result = 0.0
-]]></field>
+            <field name="amount_python_compute">taxable = rules.get('TAXABLE', 0.0) or 0.0
+taxable = float(taxable)
+deduction = 11000000
+taxable_after_deduction = max(0, taxable - deduction)
+tax = 0.0
+if taxable_after_deduction &lt;= 5000000:
+    tax = taxable_after_deduction * 0.05
+elif taxable_after_deduction &lt;= 10000000:
+    tax = 5000000 * 0.05 + (taxable_after_deduction - 5000000) * 0.10
+elif taxable_after_deduction &lt;= 18000000:
+    tax = 5000000 * 0.05 + 5000000 * 0.10 + (taxable_after_deduction - 10000000) * 0.15
+elif taxable_after_deduction &lt;= 32000000:
+    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + (taxable_after_deduction - 18000000) * 0.20
+elif taxable_after_deduction &lt;= 52000000:
+    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + (taxable_after_deduction - 32000000) * 0.25
+elif taxable_after_deduction &lt;= 80000000:
+    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + 20000000 * 0.25 + (taxable_after_deduction - 52000000) * 0.30
+else:
+    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + 20000000 * 0.25 + 28000000 * 0.30 + (taxable_after_deduction - 80000000) * 0.35
+result = -tax</field>
         </record>
 
         <!-- 9. Lương thực nhận (Net) -->
@@ -283,19 +196,12 @@ except Exception as e:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute"><![CDATA[
-# Lương thực nhận = Gross - BHXH - BHYT - BHTN - Thuế
-result = 0.0
-try:
-    gross = rules.get('GROSS', 0.0) or 0.0
-    bhxh = abs(rules.get('BHXH', 0.0) or 0.0)
-    bhyt = abs(rules.get('BHYT', 0.0) or 0.0)
-    bhtn = abs(rules.get('BHTN', 0.0) or 0.0)
-    pit = abs(rules.get('PIT', 0.0) or 0.0)
-    result = float(gross) - float(bhxh) - float(bhyt) - float(bhtn) - float(pit)
-except Exception as e:
-    result = 0.0
-]]></field>
+            <field name="amount_python_compute">gross = rules.get('GROSS', 0.0) or 0.0
+bhxh = abs(rules.get('BHXH', 0.0) or 0.0)
+bhyt = abs(rules.get('BHYT', 0.0) or 0.0)
+bhtn = abs(rules.get('BHTN', 0.0) or 0.0)
+pit = abs(rules.get('PIT', 0.0) or 0.0)
+result = float(gross) - float(bhxh) - float(bhyt) - float(bhtn) - float(pit)</field>
         </record>
 
     </data>
