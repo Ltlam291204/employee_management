@@ -208,7 +208,7 @@ class PayrollPayslip(models.Model):
             # Tính toán từng rule
             for rule in active_rules:
                 try:
-                    _logger.info(f"→ Đang tính: [{rule.code}] {rule.name}")
+                    _logger.info(f"=> Đang tính: [{rule.code}] {rule.name}")
                     
                     amount = rule.compute_rule(
                         contract=payslip.contract_id,
@@ -216,16 +216,21 @@ class PayrollPayslip(models.Model):
                         payslip=payslip,
                         rules=rules
                     )
-                    
+
+                    # Xử lý khi amount là None
+                    if amount is None:
+                        _logger.warning(f"[WARN] Quy tắc [{rule.code}] {rule.name} không trả về giá trị (amount=None)")
+                        amount = 0.0
+
                     # Log kết quả
                     if amount != 0:
-                        _logger.info(f"  ✓ Kết quả: {amount:,.2f} VNĐ")
+                        _logger.info(f"[OK] Kết quả: {amount:,.2f} VNĐ")
                     else:
-                        _logger.info(f"  - Kết quả: 0 VNĐ (không áp dụng)")
+                        _logger.info(f"[SKIP] Kết quả: 0 VNĐ (không áp dụng)")
                     
-                    # Lưu kết quả vào dictionary
+                    # Lưu kết quả
                     rules[rule.code] = amount
-                    
+
                     # Tạo dòng chi tiết
                     lines_to_create.append({
                         'payslip_id': payslip.id,
@@ -237,12 +242,14 @@ class PayrollPayslip(models.Model):
                         'amount': amount,
                         'appears_on_payslip': rule.appears_on_payslip,
                     })
-                    
+
                 except Exception as e:
-                    _logger.error(f"✗ LỖI khi tính quy tắc [{rule.code}] {rule.name}: {str(e)}")
+                    # Dùng ký tự ASCII thuần để tránh UnicodeEncodeError
+                    _logger.error(f"[ERR] Lỗi khi tính quy tắc [{rule.code}] {rule.name}: {e}")
                     raise UserError(
-                        f'Lỗi khi tính toán quy tắc "{rule.name}" (Code: {rule.code}):\n\n{str(e)}'
+                        f'Lỗi khi tính toán quy tắc "{rule.name}" (Code: {rule.code}):\n\n{e}'
                     )
+
             
             # Tạo tất cả dòng chi tiết
             self.env['payroll.payslip.line'].create(lines_to_create)
