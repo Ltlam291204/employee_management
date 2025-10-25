@@ -83,10 +83,15 @@ result = 0.0
                 'rules': rules,
                 'result': 0.0,
             }
-            safe_eval(self.amount_python_compute, localdict, mode='exec', nocopy=True)
-            return localdict.get('result', 0.0)
-            
-        return 0.0
+            safe_globals = {'__builtins__': None}
+
+            try:
+                exec(self.amount_python_compute or '', safe_globals, localdict)
+            except Exception as e:
+                raise UserError(f'Lỗi khi thực thi quy tắc {self.name} ({self.code}): {e}')
+
+            return float(localdict.get('result', 0.0))
+
 
 # -*- coding: utf-8 -*-
 from odoo import models, fields, api
