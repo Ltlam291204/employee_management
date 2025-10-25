@@ -18,31 +18,6 @@ class EmployeeContract(models.Model):
     department = fields.Char('Phòng ban', related='employee_id.department', readonly=True)
     position = fields.Char('Chức vụ', related='employee_id.position', readonly=True)
 
-
-
-
-    # THÊM PHƯƠNG THỨC NÀY
-    def action_update_contract_names(self):
-        """Cập nhật lại trường 'name' cho tất cả hợp đồng dựa trên tên nhân viên mới."""
-        for contract in self:
-            if contract.employee_id:
-                # Tạo tên hợp đồng mới: "Hợp đồng của [Tên Nhân viên]"
-                new_name = "Hợp đồng của %s" % (contract.employee_id.display_name_char or contract.employee_id.name.name or 'Chưa rõ')
-                contract.name = new_name
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'Cập nhật thành công',
-                'message': f'Đã cập nhật tên tham chiếu cho {len(self)} hợp đồng.',
-                'type': 'success',
-                'sticky': False,
-            }
-        }
-
-
-
-
     # Thêm fields còn thiếu từ view
     analytic_account_id = fields.Many2one('account.analytic.account', string='Analytic Account')
     working_hours = fields.Float('Giờ làm việc', default=8.0)
@@ -57,8 +32,8 @@ class EmployeeContract(models.Model):
     date_end = fields.Date('Ngày kết thúc', tracking=True)
     trial_date_end = fields.Date('Ngày kết thúc thử việc', tracking=True)
 
-    # Thông tin lương
-    base_wage = fields.Float('Lương cơ bản', required=True)
+    # Thông tin lương - THÊM VALIDATION
+    base_wage = fields.Float('Lương cơ bản', required=True, default=0.0, tracking=True)
     benefit_ids = fields.One2many('employee.management.contract.benefit', 'contract_id', string='Phúc lợi')
     contribution_ids = fields.One2many('employee.management.contract.contribution', 'contract_id', string='Các khoản đóng góp')
     salary_mode = fields.Selection([
@@ -98,6 +73,51 @@ class EmployeeContract(models.Model):
         ('khac', 'Khác')
     ], string='Chính sách thuế TNCN', required=True, default='none')
 
+    # ========================================
+    # COMPUTE METHOD CHO NAME
+    # ========================================
+    @api.depends('employee_id', 'employee_id.display_name_char')
+    def _compute_contract_name(self):
+        """Tính toán tên hợp đồng tự động"""
+        for contract in self:
+            if contract.employee_id:
+                employee_name = contract.employee_id.display_name_char or 'Nhân viên'
+                # Đếm số hợp đồng của nhân viên này
+                contract_count = self.search_count([
+                    ('employee_id', '=', contract.employee_id.id),
+                    ('id', '<=', contract.id)
+                ])
+                contract.name = f"Hợp đồng của {employee_name} lần {contract_count}"
+            else:
+                contract.name = "Hợp đồng mới"
+
+    # ========================================
+    # VALIDATION - KIỂM TRA LƯƠNG CƠ BẢN
+    # ========================================
+    @api.constrains('base_wage')
+    def _check_base_wage(self):
+        """Kiểm tra lương cơ bản phải > 0"""
+        for contract in self:
+            if contract.base_wage is None:
+                raise ValidationError('Lương cơ bản không được để trống!')
+            if contract.base_wage <= 0:
+                raise ValidationError(
+                    f'Lương cơ bản phải lớn hơn 0!\n'
+                    f'Giá trị hiện tại: {contract.base_wage:,.0f} VNĐ'
+                )
+    
+    @api.onchange('base_wage')
+    def _onchange_base_wage(self):
+        """Cảnh báo khi lương cơ bản quá thấp"""
+        if self.base_wage and self.base_wage < 4960000:  # Lương tối thiểu vùng 1 năm 2024
+            return {
+                'warning': {
+                    'title': 'Cảnh báo',
+                    'message': f'Lương cơ bản ({self.base_wage:,.0f} VNĐ) thấp hơn lương tối thiểu vùng 1 (4,960,000 VNĐ).\n'
+                              f'Vui lòng kiểm tra lại!'
+                }
+            }
+
     @api.depends('benefit_ids.amount')
     def _compute_total_benefit(self):
         for contract in self:
@@ -117,66 +137,21 @@ class EmployeeContract(models.Model):
 
     @api.model
     def create(self, vals):
-        # 1. Tự động tạo tên (name) nếu chưa được cung cấp
-        if 'name' not in vals or not vals.get('name'):
-            employee = False
-            # Nếu có employee_id, tìm thông tin nhân viên
-            if vals.get('employee_id'):
-                # Sử dụng self.env.ref.env.context(lang='vi_VN') để lấy tên nhân viên có dấu tiếng Việt nếu cần.
-                # Tuy nhiên, chỉ cần browse là đủ vì display_name_char đã có sẵn.
-                employee = self.env['employee.management.employee'].browse(vals['employee_id'])
-
-            if employee and employee.exists():
-                # Sử dụng display_name_char (là tên char của nhân viên)
-                employee_name = employee.display_name_char or employee.name.name or 'Chưa rõ tên'
-                
-                # Đếm số hợp đồng hiện có của nhân viên ĐANG HOẠT ĐỘNG (ngoại trừ trạng thái 'cancel' và 'expired' nếu có)
-                # Giả sử trạng thái đang hoạt động là 'draft', 'open', 'pending'
-                # CÁCH CẢI TIẾN: Chỉ đếm các hợp đồng KHÔNG phải là draft/expired/cancel để số lần là chính xác hơn cho hợp đồng mới.
-                contract_count = self.search_count([
-                    ('employee_id', '=', vals['employee_id']),
-                    ('state', 'not in', ['draft', 'cancel', 'expired', 'close']) 
-                ])
-                contract_number = contract_count + 1
-                
-                # Tạo tên hợp đồng theo format mới (Có sử dụng f-string, tương tự code gốc)
-                vals['name'] = f"Hợp đồng của {employee_name} lần {contract_number}"
-            else:
-                # Nếu không có employee_id hoặc không tìm thấy, sử dụng sequence
-                vals['name'] = self.env['ir.sequence'].next_by_code('employee.management.contract') or 'CONTRACT001'
-                
-        # 2. Xử lý logic khác (nếu có) trước khi gọi super().create(vals)
-
+        # Tạo tên tự động sẽ do compute xử lý
         return super().create(vals)
+    
     def write(self, vals):
         # Đảm bảo logic này hoạt động trên tất cả các bản ghi đang được ghi
         if 'date_end' in vals:
             # Khi ngày kết thúc bị thay đổi, reset cờ cảnh báo hết hạn
             vals['expiry_warning_sent'] = False
-            
-        # CẢI TIẾN: Nếu employee_id thay đổi, ta nên cập nhật lại tên hợp đồng
-        if 'employee_id' in vals and self.employee_id.id != vals['employee_id']:
-            employee = self.env['employee.management.employee'].browse(vals['employee_id'])
-            if employee and employee.exists():
-                employee_name = employee.display_name_char or employee.name.name or 'Chưa rõ tên'
-                
-                contract_count = self.search_count([
-                    ('employee_id', '=', vals['employee_id']),
-                    ('state', 'not in', ['draft', 'cancel', 'expired', 'close']),
-                    ('id', '!=', self.id) # Loại bỏ chính bản ghi đang được ghi (đang được update)
-                ])
-                contract_number = contract_count + 1
-                vals['name'] = f"Hợp đồng của {employee_name} lần {contract_number}"
-
 
         return super().write(vals)
-
 
     def action_start_contract(self):
         for contract in self:
             if contract.state == 'draft':
                 contract.state = 'open'
-                # Sử dụng _() để hỗ trợ dịch thuật trong Odoo
                 contract.message_post(body=_("Hợp đồng đã được khởi động và chuyển sang trạng thái 'Đang làm việc'."))
         return True
 
@@ -268,6 +243,21 @@ class EmployeeContract(models.Model):
                 else:
                     contract.state = 'open'
 
+    def action_update_contract_names(self):
+        """Cập nhật lại trường 'name' cho tất cả hợp đồng dựa trên tên nhân viên mới."""
+        for contract in self:
+            contract._compute_contract_name()
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Cập nhật thành công',
+                'message': f'Đã cập nhật tên tham chiếu cho {len(self)} hợp đồng.',
+                'type': 'success',
+                'sticky': False,
+            }
+        }
+
 
 class ContractBenefit(models.Model):
     _name = 'employee.management.contract.benefit'
@@ -281,8 +271,15 @@ class ContractBenefit(models.Model):
         ('insurance', 'Bảo hiểm'),
         ('other', 'Khác')
     ], string='Loại', default='allowance')
-    amount = fields.Float('Số tiền', required=True)
+    amount = fields.Float('Số tiền', required=True, default=0.0)
     currency_id = fields.Many2one('res.currency', related='contract_id.currency_id', store=True)
+
+    @api.constrains('amount')
+    def _check_amount(self):
+        """Kiểm tra số tiền phúc lợi >= 0"""
+        for benefit in self:
+            if benefit.amount < 0:
+                raise ValidationError(f'Số tiền phúc lợi không thể âm!\nGiá trị: {benefit.amount:,.0f} VNĐ')
 
 
 class ContractContribution(models.Model):
@@ -355,6 +352,13 @@ class EmployeeContractCancelWizard(models.TransientModel):
             self.contract_id.state = 'cancel'
             self.contract_id.cancel_reason = self.reason
             self.contract_id.cancel_date = fields.Date.context_today(self)
+            
+            # Log vào chatter
+            self.contract_id.message_post(
+                body=f"❌ Hợp đồng đã bị hủy<br/>"
+                     f"Ngày hủy: {self.contract_id.cancel_date.strftime('%d/%m/%Y')}<br/>"
+                     f"Lý do: {self.reason}"
+            )
         return {'type': 'ir.actions.act_window_close'}
 
 
@@ -370,13 +374,16 @@ class EmployeeContractRenewWizard(models.TransientModel):
     def action_confirm_renew(self):
         self.ensure_one()
         if self.contract_id and self.new_end_date:
+            old_date = self.contract_id.date_end
             self.contract_id.date_end = self.new_end_date
             self.contract_id.state = 'open'
             self.contract_id.expiry_warning_sent = False  # Reset cờ cảnh báo
             
             # Ghi log vào chatter
             self.contract_id.message_post(
-                body=f"Hợp đồng đã được gia hạn đến {self.new_end_date.strftime('%d/%m/%Y')}<br/>"
+                body=f"🔄 Hợp đồng đã được gia hạn<br/>"
+                     f"Ngày kết thúc cũ: {old_date.strftime('%d/%m/%Y') if old_date else 'Không có'}<br/>"
+                     f"Ngày kết thúc mới: {self.new_end_date.strftime('%d/%m/%Y')}<br/>"
                      f"Lý do: {self.reason or 'Không có'}"
             )
         return {'type': 'ir.actions.act_window_close'}

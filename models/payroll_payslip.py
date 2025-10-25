@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, api
 from odoo.exceptions import UserError
-from datetime import datetime
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class PayrollPayslip(models.Model):
     _name = 'payroll.payslip'
@@ -121,14 +123,69 @@ class PayrollPayslip(models.Model):
         for payslip in self:
             # Kiểm tra hợp đồng
             if not payslip.contract_id:
-                raise UserError(f'Nhân viên {payslip.employee_id.display_name_char} không có hợp đồng đang hoạt động!\n\n'
-                              f'Vui lòng kiểm tra:\n'
-                              f'- Hợp đồng có trạng thái "Đang làm việc"\n'
-                              f'- Ngày bắt đầu <= Đến ngày của phiếu lương\n'
-                              f'- Ngày kết thúc >= Từ ngày của phiếu lương (hoặc không có ngày kết thúc)')
+                raise UserError(
+                    f'Nhân viên {payslip.employee_id.display_name_char} không có hợp đồng đang hoạt động!\n\n'
+                    f'Vui lòng kiểm tra:\n'
+                    f'- Hợp đồng có trạng thái "Đang làm việc"\n'
+                    f'- Ngày bắt đầu <= Đến ngày của phiếu lương\n'
+                    f'- Ngày kết thúc >= Từ ngày của phiếu lương (hoặc không có ngày kết thúc)'
+                )
             
             if not payslip.structure_id:
                 raise UserError('Vui lòng chọn cấu trúc lương!')
+            
+            # ========================================
+            # DEBUG: Log thông tin hợp đồng
+            # ========================================
+            _logger.info("="*60)
+            _logger.info(f"TÍNH LƯƠNG CHO: {payslip.employee_id.display_name_char}")
+            _logger.info(f"Phiếu lương: {payslip.name}")
+            _logger.info(f"Hợp đồng: {payslip.contract_id.name}")
+            _logger.info("="*60)
+            
+            # Log thông tin lương cơ bản
+            base_wage = payslip.contract_id.base_wage or 0
+            _logger.info(f"Lương cơ bản: {base_wage:,.0f} VNĐ")
+            
+            # Log thông tin phúc lợi
+            if payslip.contract_id.benefit_ids:
+                _logger.info(f"Phúc lợi ({len(payslip.contract_id.benefit_ids)} khoản):")
+                for benefit in payslip.contract_id.benefit_ids:
+                    _logger.info(f"  - {benefit.name}: {benefit.amount:,.0f} VNĐ")
+                total_benefits = sum(b.amount for b in payslip.contract_id.benefit_ids)
+                _logger.info(f"  → Tổng phúc lợi: {total_benefits:,.0f} VNĐ")
+            else:
+                _logger.info("Không có phúc lợi")
+            
+            # Log thông tin đóng góp (QUAN TRỌNG!)
+            _logger.info("-" * 60)
+            if payslip.contract_id.contribution_ids:
+                _logger.info(f"Ghi nhận đóng góp ({len(payslip.contract_id.contribution_ids)} loại):")
+                for contrib in payslip.contract_id.contribution_ids:
+                    if contrib.contribution_type_id:
+                        _logger.info(f"  ✓ {contrib.contribution_type_id.code}: {contrib.contribution_type_id.name}")
+                    else:
+                        _logger.warning(f"  ⚠ Contribution không có type_id!")
+                
+                # Kiểm tra chi tiết từng loại bảo hiểm
+                bhxh_check = payslip.contract_id.contribution_ids.filtered(
+                    lambda c: c.contribution_type_id and c.contribution_type_id.code == 'BHXH'
+                )
+                bhyt_check = payslip.contract_id.contribution_ids.filtered(
+                    lambda c: c.contribution_type_id and c.contribution_type_id.code == 'BHYT'
+                )
+                bhtn_check = payslip.contract_id.contribution_ids.filtered(
+                    lambda c: c.contribution_type_id and c.contribution_type_id.code == 'BHTN'
+                )
+                
+                _logger.info(f"Kiểm tra chi tiết:")
+                _logger.info(f"  - BHXH: {'CÓ' if len(bhxh_check) > 0 else 'KHÔNG'} ({len(bhxh_check)} record)")
+                _logger.info(f"  - BHYT: {'CÓ' if len(bhyt_check) > 0 else 'KHÔNG'} ({len(bhyt_check)} record)")
+                _logger.info(f"  - BHTN: {'CÓ' if len(bhtn_check) > 0 else 'KHÔNG'} ({len(bhtn_check)} record)")
+            else:
+                _logger.warning("⚠ KHÔNG CÓ ghi nhận đóng góp nào!")
+            
+            _logger.info("="*60)
             
             # Xóa các dòng cũ
             payslip.line_ids.unlink()
@@ -141,18 +198,30 @@ class PayrollPayslip(models.Model):
             active_rules = payslip.structure_id.rule_ids.filtered(lambda r: r.is_active).sorted('sequence')
             
             if not active_rules:
-                raise UserError(f'Cấu trúc lương "{payslip.structure_id.name}" không có quy tắc nào đang hoạt động!\n\n'
-                              f'Vui lòng vào Cấu trúc lương và bật (is_active=True) các quy tắc cần thiết.')
+                raise UserError(
+                    f'Cấu trúc lương "{payslip.structure_id.name}" không có quy tắc nào đang hoạt động!\n\n'
+                    f'Vui lòng vào Cấu trúc lương và bật (is_active=True) các quy tắc cần thiết.'
+                )
+            
+            _logger.info(f"Sẽ tính {len(active_rules)} quy tắc:")
             
             # Tính toán từng rule
             for rule in active_rules:
                 try:
+                    _logger.info(f"→ Đang tính: [{rule.code}] {rule.name}")
+                    
                     amount = rule.compute_rule(
                         contract=payslip.contract_id,
                         employee=payslip.employee_id,
                         payslip=payslip,
                         rules=rules
                     )
+                    
+                    # Log kết quả
+                    if amount != 0:
+                        _logger.info(f"  ✓ Kết quả: {amount:,.2f} VNĐ")
+                    else:
+                        _logger.info(f"  - Kết quả: 0 VNĐ (không áp dụng)")
                     
                     # Lưu kết quả vào dictionary
                     rules[rule.code] = amount
@@ -168,18 +237,36 @@ class PayrollPayslip(models.Model):
                         'amount': amount,
                         'appears_on_payslip': rule.appears_on_payslip,
                     })
+                    
                 except Exception as e:
-                    raise UserError(f'Lỗi khi tính toán quy tắc "{rule.name}" (Code: {rule.code}):\n\n{str(e)}')
+                    _logger.error(f"✗ LỖI khi tính quy tắc [{rule.code}] {rule.name}: {str(e)}")
+                    raise UserError(
+                        f'Lỗi khi tính toán quy tắc "{rule.name}" (Code: {rule.code}):\n\n{str(e)}'
+                    )
             
             # Tạo tất cả dòng chi tiết
             self.env['payroll.payslip.line'].create(lines_to_create)
             
-            # Log thông báo
+            # Log tổng kết
+            _logger.info("="*60)
+            _logger.info("KẾT QUẢ TÍNH LƯƠNG:")
+            _logger.info(f"Lương cơ bản: {payslip.basic_wage:,.0f} VNĐ")
+            _logger.info(f"Tổng phụ cấp: {payslip.total_allowance:,.0f} VNĐ")
+            _logger.info(f"Tổng thu nhập (Gross): {payslip.gross_wage:,.0f} VNĐ")
+            _logger.info(f"BHXH (8%): {payslip.bhxh_amount:,.0f} VNĐ")
+            _logger.info(f"BHYT (1.5%): {payslip.bhyt_amount:,.0f} VNĐ")
+            _logger.info(f"BHTN (1%): {payslip.bhtn_amount:,.0f} VNĐ")
+            _logger.info(f"Thuế TNCN: {payslip.personal_income_tax:,.0f} VNĐ")
+            _logger.info(f"Tổng khấu trừ: {payslip.total_deduction:,.0f} VNĐ")
+            _logger.info(f"THỰC NHẬN (Net): {payslip.net_wage:,.0f} VNĐ")
+            _logger.info("="*60)
+            
+            # Gửi thông báo vào chatter
             payslip.message_post(
                 body=f'✅ Đã tính toán lại phiếu lương<br/>'
                      f'Lương cơ bản: {payslip.basic_wage:,.0f} VNĐ<br/>'
                      f'Tổng thu nhập: {payslip.gross_wage:,.0f} VNĐ<br/>'
-                     f'Thực nhận: {payslip.net_wage:,.0f} VNĐ'
+                     f'Thực nhận: <b>{payslip.net_wage:,.0f} VNĐ</b>'
             )
     
     @api.depends('line_ids.amount')

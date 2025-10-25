@@ -29,13 +29,14 @@
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute">
-# Lấy lương cơ bản từ hợp đồng
-if payslip.contract_id:
-    result = payslip.contract_id.base_wage
-else:
-    result = 0.0
-            </field>
+            <field name="amount_python_compute"><![CDATA[
+# Lấy lương cơ bản từ hợp đồng - AN TOÀN với NULL
+result = 0.0
+if payslip and payslip.contract_id:
+    base_wage = payslip.contract_id.base_wage
+    if base_wage is not None and base_wage > 0:
+        result = float(base_wage)
+            ]]></field>
         </record>
 
         <!-- 2. Tổng phúc lợi từ benefits -->
@@ -48,13 +49,17 @@ else:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute">
-# Lấy tổng các phúc lợi từ hợp đồng
-if payslip.contract_id:
-    result = sum(payslip.contract_id.benefit_ids.mapped('amount'))
-else:
-    result = 0.0
-            </field>
+            <field name="amount_python_compute"><![CDATA[
+# Lấy tổng các phúc lợi từ hợp đồng - AN TOÀN với NULL
+result = 0.0
+if payslip and payslip.contract_id:
+    benefits = payslip.contract_id.benefit_ids
+    if benefits:
+        for b in benefits:
+            amount = b.amount
+            if amount is not None and amount > 0:
+                result += float(amount)
+            ]]></field>
         </record>
 
         <!-- 3. Tổng thu nhập (Gross) -->
@@ -67,10 +72,19 @@ else:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute">
-# Tổng thu nhập = Lương cơ bản + Phúc lợi
-result = rules.get('BASIC', 0) + rules.get('BENEFITS', 0)
-            </field>
+            <field name="amount_python_compute"><![CDATA[
+# Tổng thu nhập = Lương cơ bản + Phúc lợi - AN TOÀN
+basic = rules.get('BASIC', 0.0)
+benefits = rules.get('BENEFITS', 0.0)
+
+# Chuyển đổi an toàn
+if basic is None:
+    basic = 0.0
+if benefits is None:
+    benefits = 0.0
+
+result = float(basic) + float(benefits)
+            ]]></field>
         </record>
 
         <!-- 4. BHXH - 8% (CHỈ tính nếu có ghi nhận đóng góp BHXH trong hợp đồng) -->
@@ -85,18 +99,19 @@ result = rules.get('BASIC', 0) + rules.get('BENEFITS', 0)
             <field name="is_active" eval="True"/>
             <field name="amount_python_compute"><![CDATA[
 # BHXH = 8% lương cơ bản - CHỈ tính nếu có ghi nhận đóng góp BHXH
-if payslip.contract_id:
+result = 0.0
+
+if payslip and payslip.contract_id:
     # Kiểm tra xem hợp đồng có ghi nhận đóng góp BHXH không
-    has_bhxh = payslip.contract_id.contribution_ids.filtered(
-        lambda c: c.contribution_type_id.code == 'BHXH'
+    contributions = payslip.contract_id.contribution_ids.filtered(
+        lambda c: c.contribution_type_id and c.contribution_type_id.code == 'BHXH'
     )
-    if has_bhxh:
-        basic = rules.get('BASIC', 0)
-        result = -basic * 0.08
-    else:
-        result = 0.0
-else:
-    result = 0.0
+    
+    # QUAN TRỌNG: Kiểm tra độ dài recordset, không chỉ kiểm tra truthy
+    if len(contributions) > 0:
+        basic = rules.get('BASIC', 0.0)
+        if basic is not None and basic > 0:
+            result = -float(basic) * 0.08
             ]]></field>
         </record>
 
@@ -112,18 +127,19 @@ else:
             <field name="is_active" eval="True"/>
             <field name="amount_python_compute"><![CDATA[
 # BHYT = 1.5% lương cơ bản - CHỈ tính nếu có ghi nhận đóng góp BHYT
-if payslip.contract_id:
+result = 0.0
+
+if payslip and payslip.contract_id:
     # Kiểm tra xem hợp đồng có ghi nhận đóng góp BHYT không
-    has_bhyt = payslip.contract_id.contribution_ids.filtered(
-        lambda c: c.contribution_type_id.code == 'BHYT'
+    contributions = payslip.contract_id.contribution_ids.filtered(
+        lambda c: c.contribution_type_id and c.contribution_type_id.code == 'BHYT'
     )
-    if has_bhyt:
-        basic = rules.get('BASIC', 0)
-        result = -basic * 0.015
-    else:
-        result = 0.0
-else:
-    result = 0.0
+    
+    # QUAN TRỌNG: Kiểm tra độ dài recordset
+    if len(contributions) > 0:
+        basic = rules.get('BASIC', 0.0)
+        if basic is not None and basic > 0:
+            result = -float(basic) * 0.015
             ]]></field>
         </record>
 
@@ -139,20 +155,21 @@ else:
             <field name="is_active" eval="True"/>
             <field name="amount_python_compute"><![CDATA[
 # BHTN = 1% lương cơ bản - CHỈ tính nếu có ghi nhận đóng góp BHTN
-if payslip.contract_id:
+result = 0.0
+
+if payslip and payslip.contract_id:
     # Kiểm tra xem hợp đồng có ghi nhận đóng góp BHTN không
-    has_bhtn = payslip.contract_id.contribution_ids.filtered(
-        lambda c: c.contribution_type_id.code == 'BHTN'
+    contributions = payslip.contract_id.contribution_ids.filtered(
+        lambda c: c.contribution_type_id and c.contribution_type_id.code == 'BHTN'
     )
-    if has_bhtn:
-        basic = rules.get('BASIC', 0)
-        max_bhtn = 4960000 * 20  # Lương tối thiểu vùng 1 năm 2024
-        bhtn_base = min(basic, max_bhtn)
-        result = -bhtn_base * 0.01
-    else:
-        result = 0.0
-else:
-    result = 0.0
+    
+    # QUAN TRỌNG: Kiểm tra độ dài recordset
+    if len(contributions) > 0:
+        basic = rules.get('BASIC', 0.0)
+        if basic is not None and basic > 0:
+            max_bhtn = 4960000 * 20  # Lương tối thiểu vùng 1 năm 2024
+            bhtn_base = min(float(basic), max_bhtn)
+            result = -bhtn_base * 0.01
             ]]></field>
         </record>
 
@@ -166,14 +183,15 @@ else:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="False"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute">
+            <field name="amount_python_compute"><![CDATA[
 # Thu nhập trước thuế = Gross - BHXH - BHYT - BHTN
-gross = rules.get('GROSS', 0)
-bhxh = abs(rules.get('BHXH', 0))
-bhyt = abs(rules.get('BHYT', 0))
-bhtn = abs(rules.get('BHTN', 0))
-result = gross - bhxh - bhyt - bhtn
-            </field>
+gross = rules.get('GROSS', 0.0) or 0.0
+bhxh = abs(rules.get('BHXH', 0.0) or 0.0)
+bhyt = abs(rules.get('BHYT', 0.0) or 0.0)
+bhtn = abs(rules.get('BHTN', 0.0) or 0.0)
+
+result = float(gross) - float(bhxh) - float(bhyt) - float(bhtn)
+            ]]></field>
         </record>
 
         <!-- 8. Thuế TNCN -->
@@ -188,7 +206,8 @@ result = gross - bhxh - bhyt - bhtn
             <field name="is_active" eval="True"/>
             <field name="amount_python_compute"><![CDATA[
 # Tính thuế TNCN theo bậc thang lũy tiến
-taxable = rules.get('TAXABLE', 0)
+taxable = rules.get('TAXABLE', 0.0) or 0.0
+taxable = float(taxable)
 
 # Giảm trừ gia cảnh: 11 triệu cho bản thân
 deduction = 11000000
@@ -197,7 +216,7 @@ deduction = 11000000
 taxable_after_deduction = max(0, taxable - deduction)
 
 # Bậc thang thuế TNCN 2024
-tax = 0
+tax = 0.0
 if taxable_after_deduction <= 5000000:
     tax = taxable_after_deduction * 0.05
 elif taxable_after_deduction <= 10000000:
@@ -227,15 +246,16 @@ result = -tax
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute">
+            <field name="amount_python_compute"><![CDATA[
 # Lương thực nhận = Gross - BHXH - BHYT - BHTN - Thuế TNCN
-gross = rules.get('GROSS', 0)
-bhxh = abs(rules.get('BHXH', 0))
-bhyt = abs(rules.get('BHYT', 0))
-bhtn = abs(rules.get('BHTN', 0))
-pit = abs(rules.get('PIT', 0))
-result = gross - bhxh - bhyt - bhtn - pit
-            </field>
+gross = rules.get('GROSS', 0.0) or 0.0
+bhxh = abs(rules.get('BHXH', 0.0) or 0.0)
+bhyt = abs(rules.get('BHYT', 0.0) or 0.0)
+bhtn = abs(rules.get('BHTN', 0.0) or 0.0)
+pit = abs(rules.get('PIT', 0.0) or 0.0)
+
+result = float(gross) - float(bhxh) - float(bhyt) - float(bhtn) - float(pit)
+            ]]></field>
         </record>
 
     </data>
