@@ -19,7 +19,7 @@
             <field name="note">Cấu trúc lương theo quy định tại Việt Nam với BHXH, BHYT, BHTN và Thuế TNCN</field>
         </record>
 
-        <!-- 1. Lương cơ bản -->
+        <!-- 1. Lương cơ bản (chỉ base_wage) -->
         <record id="rule_basic_salary" model="payroll.salary.rule">
             <field name="name">Lương cơ bản</field>
             <field name="code">BASIC</field>
@@ -30,11 +30,13 @@
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
             <field name="amount_python_compute">result = 0.0
-if payslip and payslip.contract_id and payslip.contract_id.base_wage:
-    result = float(payslip.contract_id.base_wage)</field>
+if payslip and payslip.contract_id:
+    base_wage = payslip.contract_id.base_wage
+    if base_wage:
+        result = float(base_wage)</field>
         </record>
 
-        <!-- 2. Tổng phúc lợi từ benefits -->
+        <!-- 2. Tổng phúc lợi -->
         <record id="rule_total_benefits" model="payroll.salary.rule">
             <field name="name">Tổng phúc lợi</field>
             <field name="code">BENEFITS</field>
@@ -61,12 +63,14 @@ if payslip and payslip.contract_id:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute">basic = rules.get('BASIC', 0.0) or 0.0
-benefits = rules.get('BENEFITS', 0.0) or 0.0
-result = float(basic) + float(benefits)</field>
+            <field name="amount_python_compute">result = 0.0
+if rules:
+    basic = rules.get('BASIC', 0.0) or 0.0
+    benefits = rules.get('BENEFITS', 0.0) or 0.0
+    result = float(basic) + float(benefits)</field>
         </record>
 
-        <!-- 4. BHXH - 8% -->
+        <!-- 4. BHXH - 8% (tính trên GROSS) -->
         <record id="rule_bhxh" model="payroll.salary.rule">
             <field name="name">Bảo hiểm xã hội (8%)</field>
             <field name="code">BHXH</field>
@@ -83,13 +87,13 @@ if payslip and payslip.contract_id:
         if c.contribution_type_id and c.contribution_type_id.code == 'BHXH':
             has_bhxh = True
             break
-    if has_bhxh:
-        basic = rules.get('BASIC', 0.0) or 0.0
-        if basic &gt; 0:
-            result = -float(basic) * 0.08</field>
+    if has_bhxh and rules:
+        gross = rules.get('GROSS', 0.0) or 0.0
+        if gross > 0:
+            result = -float(gross) * 0.08</field>
         </record>
 
-        <!-- 5. BHYT - 1.5% -->
+        <!-- 5. BHYT - 1.5% (tính trên GROSS) -->
         <record id="rule_bhyt" model="payroll.salary.rule">
             <field name="name">Bảo hiểm y tế (1.5%)</field>
             <field name="code">BHYT</field>
@@ -106,13 +110,13 @@ if payslip and payslip.contract_id:
         if c.contribution_type_id and c.contribution_type_id.code == 'BHYT':
             has_bhyt = True
             break
-    if has_bhyt:
-        basic = rules.get('BASIC', 0.0) or 0.0
-        if basic &gt; 0:
-            result = -float(basic) * 0.015</field>
+    if has_bhyt and rules:
+        gross = rules.get('GROSS', 0.0) or 0.0
+        if gross > 0:
+            result = -float(gross) * 0.015</field>
         </record>
 
-        <!-- 6. BHTN - 1% -->
+        <!-- 6. BHTN - 1% (tính trên GROSS, có giới hạn) -->
         <record id="rule_bhtn" model="payroll.salary.rule">
             <field name="name">Bảo hiểm thất nghiệp (1%)</field>
             <field name="code">BHTN</field>
@@ -129,11 +133,11 @@ if payslip and payslip.contract_id:
         if c.contribution_type_id and c.contribution_type_id.code == 'BHTN':
             has_bhtn = True
             break
-    if has_bhtn:
-        basic = rules.get('BASIC', 0.0) or 0.0
-        if basic &gt; 0:
+    if has_bhtn and rules:
+        gross = rules.get('GROSS', 0.0) or 0.0
+        if gross > 0:
             max_bhtn = 4960000 * 20
-            bhtn_base = min(float(basic), max_bhtn)
+            bhtn_base = min(float(gross), max_bhtn)
             result = -bhtn_base * 0.01</field>
         </record>
 
@@ -147,11 +151,13 @@ if payslip and payslip.contract_id:
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="False"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute">gross = rules.get('GROSS', 0.0) or 0.0
-bhxh = abs(rules.get('BHXH', 0.0) or 0.0)
-bhyt = abs(rules.get('BHYT', 0.0) or 0.0)
-bhtn = abs(rules.get('BHTN', 0.0) or 0.0)
-result = float(gross) - float(bhxh) - float(bhyt) - float(bhtn)</field>
+            <field name="amount_python_compute">result = 0.0
+if rules:
+    gross = rules.get('GROSS', 0.0) or 0.0
+    bhxh = abs(rules.get('BHXH', 0.0) or 0.0)
+    bhyt = abs(rules.get('BHYT', 0.0) or 0.0)
+    bhtn = abs(rules.get('BHTN', 0.0) or 0.0)
+    result = float(gross) - float(bhxh) - float(bhyt) - float(bhtn)</field>
         </record>
 
         <!-- 8. Thuế TNCN -->
@@ -164,26 +170,28 @@ result = float(gross) - float(bhxh) - float(bhyt) - float(bhtn)</field>
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute">taxable = rules.get('TAXABLE', 0.0) or 0.0
-taxable = float(taxable)
-deduction = 11000000
-taxable_after_deduction = max(0, taxable - deduction)
-tax = 0.0
-if taxable_after_deduction &lt;= 5000000:
-    tax = taxable_after_deduction * 0.05
-elif taxable_after_deduction &lt;= 10000000:
-    tax = 5000000 * 0.05 + (taxable_after_deduction - 5000000) * 0.10
-elif taxable_after_deduction &lt;= 18000000:
-    tax = 5000000 * 0.05 + 5000000 * 0.10 + (taxable_after_deduction - 10000000) * 0.15
-elif taxable_after_deduction &lt;= 32000000:
-    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + (taxable_after_deduction - 18000000) * 0.20
-elif taxable_after_deduction &lt;= 52000000:
-    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + (taxable_after_deduction - 32000000) * 0.25
-elif taxable_after_deduction &lt;= 80000000:
-    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + 20000000 * 0.25 + (taxable_after_deduction - 52000000) * 0.30
-else:
-    tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + 20000000 * 0.25 + 28000000 * 0.30 + (taxable_after_deduction - 80000000) * 0.35
-result = -tax</field>
+            <field name="amount_python_compute">result = 0.0
+if rules:
+    taxable = rules.get('TAXABLE', 0.0) or 0.0
+    taxable = float(taxable)
+    deduction = 11000000
+    taxable_after_deduction = max(0, taxable - deduction)
+    tax = 0.0
+    if taxable_after_deduction &lt;= 5000000:
+        tax = taxable_after_deduction * 0.05
+    elif taxable_after_deduction &lt;= 10000000:
+        tax = 5000000 * 0.05 + (taxable_after_deduction - 5000000) * 0.10
+    elif taxable_after_deduction &lt;= 18000000:
+        tax = 5000000 * 0.05 + 5000000 * 0.10 + (taxable_after_deduction - 10000000) * 0.15
+    elif taxable_after_deduction &lt;= 32000000:
+        tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + (taxable_after_deduction - 18000000) * 0.20
+    elif taxable_after_deduction &lt;= 52000000:
+        tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + (taxable_after_deduction - 32000000) * 0.25
+    elif taxable_after_deduction &lt;= 80000000:
+        tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + 20000000 * 0.25 + (taxable_after_deduction - 52000000) * 0.30
+    else:
+        tax = 5000000 * 0.05 + 5000000 * 0.10 + 8000000 * 0.15 + 14000000 * 0.20 + 20000000 * 0.25 + 28000000 * 0.30 + (taxable_after_deduction - 80000000) * 0.35
+    result = -tax</field>
         </record>
 
         <!-- 9. Lương thực nhận (Net) -->
@@ -196,12 +204,14 @@ result = -tax</field>
             <field name="amount_type">code</field>
             <field name="appears_on_payslip" eval="True"/>
             <field name="is_active" eval="True"/>
-            <field name="amount_python_compute">gross = rules.get('GROSS', 0.0) or 0.0
-bhxh = abs(rules.get('BHXH', 0.0) or 0.0)
-bhyt = abs(rules.get('BHYT', 0.0) or 0.0)
-bhtn = abs(rules.get('BHTN', 0.0) or 0.0)
-pit = abs(rules.get('PIT', 0.0) or 0.0)
-result = float(gross) - float(bhxh) - float(bhyt) - float(bhtn) - float(pit)</field>
+            <field name="amount_python_compute">result = 0.0
+if rules:
+    gross = rules.get('GROSS', 0.0) or 0.0
+    bhxh = abs(rules.get('BHXH', 0.0) or 0.0)
+    bhyt = abs(rules.get('BHYT', 0.0) or 0.0)
+    bhtn = abs(rules.get('BHTN', 0.0) or 0.0)
+    pit = abs(rules.get('PIT', 0.0) or 0.0)
+    result = float(gross) - float(bhxh) - float(bhyt) - float(bhtn) - float(pit)</field>
         </record>
 
     </data>
